@@ -1,318 +1,431 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>3D Chemistry Lab</title>
+<title>3D Chemistry Lab - Advanced Simulation</title>
 <style>
-/* NO external fonts - zero network dependency */
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;font-family:'Courier New',monospace;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:'Courier New',monospace;}
 
-/* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;width:100%;height:100%;}
 
+/* Top Bar with animated gradient */
 #topbar{
   height:44px;min-height:44px;
-  background:linear-gradient(90deg,#070c18,#0d1526,#070c18);
-  border-bottom:1px solid rgba(0,210,255,.2);
+  background:linear-gradient(90deg,#070c18,#0d1526,#1a2a3a,#0d1526,#070c18);
+  background-size:400% 100%;
+  animation:gradientMove 8s ease infinite;
+  border-bottom:1px solid rgba(0,210,255,.3);
   display:flex;align-items:center;justify-content:space-between;
   padding:0 20px;flex-shrink:0;
+  position:relative;
+  overflow:hidden;
 }
-#topbar .logo{font-size:16px;font-weight:900;color:#00d4ff;letter-spacing:3px;text-shadow:0 0 14px rgba(0,212,255,.6);}
-#topbar .ver{font-size:10px;color:#2a4060;letter-spacing:1px;}
-#phdisp{
-  font-size:11px;letter-spacing:1px;padding:4px 16px;
-  border:1px solid rgba(0,212,255,.3);border-radius:20px;
-  color:#00d4ff;background:rgba(0,212,255,.05);
-  transition:all .6s;white-space:nowrap;min-width:130px;text-align:center;
+
+@keyframes gradientMove {
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
 }
+
+#topbar::after{
+  content:'';
+  position:absolute;
+  top:0;left:-100%;width:50%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);
+  animation:shimmer 3s infinite;
+}
+
+@keyframes shimmer{
+  0%{left:-100%;}
+  20%{left:120%;}
+  100%{left:120%;}
+}
+
+#topbar .logo{font-size:18px;font-weight:900;color:#00d4ff;letter-spacing:3px;text-shadow:0 0 20px rgba(0,212,255,.8);animation:pulse 2s infinite;}
+@keyframes pulse{0%{opacity:1;}50%{opacity:0.8;text-shadow:0 0 30px rgba(0,212,255,1);}100%{opacity:1;}}
+#phdisp{font-size:11px;padding:4px 16px;border:1px solid rgba(0,212,255,.3);border-radius:20px;color:#00d4ff;background:rgba(0,212,255,.05);transition:all .6s;white-space:nowrap;min-width:130px;text-align:center;position:relative;overflow:hidden;}
+#phdisp::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(transparent,rgba(0,212,255,0.3),transparent);animation:rotate 4s linear infinite;opacity:0.5;}
+@keyframes rotate{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 
 #body{display:flex;flex:1;overflow:hidden;min-height:0;}
 
-/* ── LAB CANVAS AREA ── */
+/* Lab Canvas Area with floating particles */
 #labwrap{
   flex:1;position:relative;overflow:hidden;
   background:linear-gradient(180deg,#8fa5c0 0%,#a8bdd4 45%,#6a7a95 45%,#4e5e78 100%);
+  animation:ambientLight 10s ease infinite;
 }
 
-/* Canvas for 3D room drawing */
-#bgcanvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}
+@keyframes ambientLight{
+  0%,100%{filter:brightness(1);}
+  50%{filter:brightness(1.05);}
+}
 
-/* Equipment overlay - sits ABOVE canvas, NO transforms */
-#overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+/* Floating particles */
+#particles{
+  position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;
+  z-index:1;
+}
+.particle{
+  position:absolute;
+  background:rgba(255,255,255,0.3);
+  border-radius:50%;
+  pointer-events:none;
+  animation:floatParticle 15s linear infinite;
+}
+@keyframes floatParticle{
+  0%{transform:translateY(100vh) translateX(0) scale(0.5);opacity:0;}
+  10%{opacity:0.6;}
+  90%{opacity:0.4;}
+  100%{transform:translateY(-20vh) translateX(50px) scale(1.5);opacity:0;}
+}
 
-/* ── EQUIPMENT ITEMS ── all positioned via JS after layout measured ── */
-.eitem{position:absolute;pointer-events:all;}
+/* Canvas for 3D room rendering */
+#bgcanvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;z-index:2;}
 
-/* === GLASSWARE STYLES === */
+/* Equipment overlay */
+#overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;}
+
+/* Equipment items */
+.eitem{position:absolute;pointer-events:all;transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1);animation:appear 0.6s ease-out;}
+@keyframes appear{
+  from{opacity:0;transform:translateY(30px) scale(0.8);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+.eitem:hover{transform:translateY(-5px) scale(1.02);z-index:10;}
+
+/* Glassware Styles with enhanced animations */
 .glass-container{
   position:relative;
   border-radius:inherit;
   overflow:hidden;
   cursor:pointer;
-  transition:filter .2s;
+  transition:filter .2s, transform .3s, box-shadow .3s;
+  box-shadow:0 10px 20px rgba(0,0,0,0.3);
+  animation:glassPulse 4s ease-in-out infinite;
 }
-.glass-container:hover{filter:brightness(1.15);}
+@keyframes glassPulse{
+  0%,100%{box-shadow:0 10px 20px rgba(0,0,0,0.3), inset -5px -5px 15px rgba(255,255,255,0.1);}
+  50%{box-shadow:0 15px 25px rgba(0,212,255,0.2), inset -8px -8px 20px rgba(255,255,255,0.15);}
+}
+.glass-container:hover{
+  filter:brightness(1.15);
+  transform:scale(1.03);
+  box-shadow:0 15px 30px rgba(0,212,255,0.3);
+}
 
 .liquid{
   position:absolute;bottom:0;left:0;right:0;
-  transition:height 1.2s cubic-bezier(.4,0,.2,1), background-color 1.5s ease, background 1.5s ease;
+  transition:height 1.2s cubic-bezier(.34,1.56,.64,1), background-color 1.5s ease, background 1.5s ease;
   border-radius:0 0 inherit inherit;
+  animation:liquidWave 5s ease-in-out infinite;
+}
+@keyframes liquidWave{
+  0%,100%{transform:scaleY(1);}
+  50%{transform:scaleY(1.02);}
 }
 
-.glass-shine{
-  position:absolute;top:8px;left:6px;
-  width:5px;border-radius:50%;
-  background:rgba(255,255,255,.35);
-  pointer-events:none;
-}
-
+/* Bubble Animation */
 .bubble-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
-
-/* === BEAKER === */
-.beaker-outer{
-  background:rgba(180,220,255,.15);
-  border:2px solid rgba(140,190,255,.55);
-  border-radius:4px 4px 10px 10px;
-  box-shadow:inset -5px 0 12px rgba(0,80,200,.12),3px 4px 14px rgba(0,0,0,.35);
-}
-.beaker-lip{
-  position:absolute;top:-4px;left:-3px;right:-3px;height:7px;
-  background:rgba(140,190,255,.32);border-radius:4px 4px 0 0;
-}
-
-/* === FLASK === */
-.flask-neck{
-  width:18px;height:28px;
-  background:rgba(180,220,255,.18);
-  border:2px solid rgba(140,190,255,.5);
-  border-radius:3px 3px 0 0;
-  margin:0 auto;position:relative;z-index:1;
-}
-.flask-body{
-  background:rgba(180,220,255,.15);
-  border:2px solid rgba(140,190,255,.52);
-  border-radius:50% 50% 40% 40%;
-  margin-top:-2px;
-  box-shadow:inset -6px -6px 18px rgba(0,60,150,.15),4px 5px 18px rgba(0,0,0,.38);
-}
-
-/* === TEST TUBE === */
-.test-tube{
-  background:rgba(180,220,255,.15);
-  border:2px solid rgba(140,190,255,.45);
-  border-radius:3px 3px 12px 12px;
-  box-shadow:inset -3px 0 8px rgba(0,80,200,.1);
-  cursor:pointer;transition:transform .25s;
-}
-.test-tube:hover{transform:translateY(-8px);}
-
-/* === BOTTLE === */
-.bottle-body{
-  background:rgba(180,220,255,.18);
-  border:2px solid rgba(140,190,255,.4);
-  border-radius:5px 5px 7px 7px;
-  box-shadow:inset -4px 0 10px rgba(0,80,200,.08),3px 3px 12px rgba(0,0,0,.28);
-}
-.bottle-cap{border-radius:3px 3px 0 0;}
-.bottle-neck{
-  background:rgba(180,220,255,.18);
-  border:2px solid rgba(140,190,255,.4);
-  border-radius:2px 2px 0 0;
-  margin:0 auto;
-}
-.bottle-label{
-  position:absolute;top:30%;left:50%;transform:translateX(-50%);
-  background:rgba(255,255,255,.88);color:#0a3060;
-  font-size:8px;font-weight:700;padding:2px 4px;border-radius:2px;
-  white-space:nowrap;z-index:2;pointer-events:none;
-}
-
-/* item label below each piece */
-.ilabel{
-  position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);
-  font-size:9px;color:rgba(150,185,235,.5);
-  letter-spacing:1px;white-space:nowrap;text-transform:uppercase;
+.bubble{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,0.6);
+  animation:bubbleRise 2s ease-out forwards;
   pointer-events:none;
 }
-
-/* flash overlay for reaction */
-.flash-over{
-  position:absolute;inset:0;background:transparent;
-  pointer-events:none;transition:background .15s;
-  border-radius:inherit;
+@keyframes bubbleRise{
+  0%{opacity:0.8;transform:translateY(0) scale(0.5);}
+  50%{opacity:0.6;transform:translateY(-25px) scale(1);}
+  100%{opacity:0;transform:translateY(-60px) scale(0.8);}
 }
 
-/* flame */
+/* Steam Particles */
+.steam-particle{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,0.4);
+  animation:steamRise 3s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes steamRise{
+  0%{opacity:0.7;transform:translateY(0) translateX(0) scale(0.5);}
+  50%{opacity:0.4;transform:translateY(-40px) translateX(var(--dx,10px)) scale(1.2);}
+  100%{opacity:0;transform:translateY(-90px) translateX(var(--dx,20px)) scale(1.8);}
+}
+
+/* Flame Animation */
 #flame-el{
   position:absolute;
   width:24px;height:50px;
   background:radial-gradient(ellipse at 50% 100%,#fff 0%,#ffe066 14%,#ff9500 44%,#ff3300 80%,transparent 100%);
   border-radius:50% 50% 28% 28%;
-  animation:flk .12s infinite alternate;
+  animation:flameFlicker .08s infinite alternate, flameGlow 2s infinite;
   transform-origin:bottom center;
-  opacity:0;transition:opacity .4s;
+  opacity:0;
+  transition:opacity .4s;
+  pointer-events:none;
+  filter:blur(2px);
+  z-index:5;
+}
+@keyframes flameFlicker{
+  from{transform:scaleX(1) scaleY(1) rotate(-2deg);filter:blur(2px);}
+  to{transform:scaleX(.88) scaleY(1.1) rotate(2deg);filter:blur(1px);}
+}
+@keyframes flameGlow{
+  0%,100%{box-shadow:0 0 30px rgba(255,150,0,0.8);}
+  50%{box-shadow:0 0 50px rgba(255,100,0,1);}
+}
+
+/* Smoke Effect */
+.smoke-particle{
+  position:absolute;border-radius:50%;
+  background:rgba(150,150,150,0.3);
+  animation:smokeRise 4s ease-out forwards;
   pointer-events:none;
 }
-@keyframes flk{
-  from{transform:scaleX(1) scaleY(1) rotate(-1deg);}
-  to{transform:scaleX(.88) scaleY(1.1) rotate(1deg);}
+@keyframes smokeRise{
+  0%{opacity:0.5;transform:translateY(0) scale(0.3);}
+  50%{opacity:0.3;transform:translateY(-50px) scale(1.5);}
+  100%{opacity:0;transform:translateY(-120px) scale(2.5);}
 }
 
-/* steam */
-.steam-p{
-  position:absolute;border-radius:50%;
-  background:rgba(255,255,255,.4);
-  animation:stm 2.2s ease-out forwards;pointer-events:none;
+/* Glass Shine Animation */
+.glass-shine{
+  position:absolute;top:8px;left:6px;
+  width:5px;border-radius:50%;
+  background:rgba(255,255,255,.45);
+  pointer-events:none;
+  animation:shineMove 3s ease-in-out infinite;
 }
-@keyframes stm{
-  0%{opacity:.7;transform:translateY(0) translateX(0) scale(.5);}
-  100%{opacity:0;transform:translateY(-75px) translateX(var(--sx,10px)) scale(2.5);}
+@keyframes shineMove{
+  0%,100%{transform:translateX(0);opacity:0.45;}
+  50%{transform:translateX(10px);opacity:0.8;}
 }
-.bub{
-  position:absolute;border-radius:50%;
-  background:rgba(255,255,255,.55);
-  animation:brise 1.6s ease-in forwards;pointer-events:none;
-}
-@keyframes brise{0%{opacity:.8;transform:translateY(0);}100%{opacity:0;transform:translateY(-55px);}}
 
-/* ── SIDEBAR ── */
+/* Flash Effect */
+.flash-over{
+  position:absolute;inset:0;background:transparent;
+  pointer-events:none;transition:background .15s;
+  border-radius:inherit;
+  z-index:10;
+}
+@keyframes flash{
+  0%{background:rgba(255,255,255,0.8);}
+  100%{background:transparent;}
+}
+
+/* Sidebar with glass morphism */
 #sidebar{
-  width:252px;min-width:252px;
-  background:linear-gradient(180deg,#060b15,#09101e);
-  border-left:1px solid rgba(0,210,255,.12);
-  display:flex;flex-direction:column;overflow:hidden;
+  width:280px;min-width:280px;
+  background:linear-gradient(180deg,#060b15ee,#09101eee);
+  border-left:1px solid rgba(0,210,255,.2);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  backdrop-filter:blur(10px);
+  position:relative;
+  z-index:10;
+}
+#sidebar::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,#00d4ff,transparent);
+  animation:sidebarGlow 3s linear infinite;
+}
+@keyframes sidebarGlow{
+  0%{transform:translateX(-100%);}
+  100%{transform:translateX(100%);}
 }
 
-#expsel{padding:12px;border-bottom:1px solid rgba(0,210,255,.1);}
-#expsel h3{font-size:10px;color:#00d4ff;letter-spacing:2px;margin-bottom:9px;font-weight:normal;}
+/* Experiment options with hover effects */
 .eopt{
   padding:8px 10px;margin-bottom:5px;
   border:1px solid #162030;border-radius:6px;
   cursor:pointer;font-size:10px;color:#4a6a8a;
-  transition:all .2s;line-height:1.5;
+  transition:all .3s;line-height:1.5;
+  position:relative;overflow:hidden;
 }
-.eopt:hover{border-color:rgba(0,212,255,.35);color:#88aabb;background:rgba(0,212,255,.04);}
-.eopt.act{border-color:#00d4ff;color:#00d4ff;background:rgba(0,212,255,.07);}
+.eopt::before{
+  content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,0.2),transparent);
+  transition:left 0.5s;
+}
+.eopt:hover::before{left:100%;}
+.eopt:hover{border-color:rgba(0,212,255,.35);color:#88aabb;background:rgba(0,212,255,.04);transform:translateX(5px);}
+.eopt.act{border-color:#00d4ff;color:#00d4ff;background:rgba(0,212,255,.07);animation:pulseBorder 2s infinite;}
+@keyframes pulseBorder{
+  0%,100%{box-shadow:0 0 5px rgba(0,212,255,0.3);}
+  50%{box-shadow:0 0 15px rgba(0,212,255,0.7);}
+}
 
-#ctrl{padding:12px;border-bottom:1px solid rgba(0,210,255,.1);flex-shrink:0;}
-#ctrl h3{font-size:10px;color:#00d4ff;letter-spacing:2px;margin-bottom:9px;font-weight:normal;}
-
+/* Control buttons with animations */
 .lbtn{
   display:block;width:100%;padding:9px 12px;margin-bottom:6px;
   border-radius:6px;border:1px solid;background:transparent;
   font-family:'Courier New',monospace;font-size:11px;letter-spacing:.8px;
-  cursor:pointer;transition:all .2s;text-transform:uppercase;text-align:left;
+  cursor:pointer;transition:all .3s;text-transform:uppercase;text-align:left;
+  position:relative;overflow:hidden;
 }
-.lbtn:disabled{opacity:.25;cursor:not-allowed;}
-.r{border-color:#ff4455;color:#ff4455;}
-.r:hover:not(:disabled){background:rgba(255,68,85,.13);box-shadow:0 0 10px rgba(255,68,85,.25);}
-.b{border-color:#00d4ff;color:#00d4ff;}
-.b:hover:not(:disabled){background:rgba(0,212,255,.1);box-shadow:0 0 10px rgba(0,212,255,.25);}
-.o{border-color:#ff9500;color:#ff9500;}
-.o:hover:not(:disabled){background:rgba(255,149,0,.1);box-shadow:0 0 10px rgba(255,149,0,.25);}
-.p{border-color:#c077ff;color:#c077ff;}
-.p:hover:not(:disabled){background:rgba(192,119,255,.1);box-shadow:0 0 10px rgba(192,119,255,.25);}
-.g{border-color:#33ee88;color:#33ee88;}
-.g:hover:not(:disabled){background:rgba(51,238,136,.1);box-shadow:0 0 10px rgba(51,238,136,.25);}
-.x{border-color:#334455;color:#667788;}
-.x:hover:not(:disabled){background:rgba(51,68,85,.2);}
+.lbtn:disabled{opacity:.25;cursor:not-allowed;animation:none;}
+.lbtn::after{
+  content:'';position:absolute;top:50%;left:50%;width:0;height:0;
+  border-radius:50%;background:rgba(255,255,255,0.3);
+  transform:translate(-50%,-50%);
+  transition:width 0.3s, height 0.3s;
+}
+.lbtn:hover:not(:disabled)::after{
+  width:200px;height:200px;
+}
+.lbtn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 5px 15px currentColor;}
 
-/* pH bar */
-#phbar-wrap{margin:8px 12px;flex-shrink:0;}
+/* pH bar with glow */
 #phbar-track{
   height:13px;border-radius:6px;
   background:linear-gradient(90deg,#ff2244,#ff8800,#eeee00,#33dd66,#0088ff,#8800cc);
   position:relative;border:1px solid #1a2a3a;overflow:visible;
+  animation:rainbowWave 10s linear infinite;
+  background-size:200% 100%;
+}
+@keyframes rainbowWave{
+  0%{background-position:0% 50%;}
+  100%{background-position:200% 50%;}
 }
 #phneedle{
   position:absolute;top:-5px;width:3px;height:23px;
   background:#fff;border-radius:2px;
-  box-shadow:0 0 7px rgba(255,255,255,.8);
-  transition:left 1s ease;left:50%;transform:translateX(-50%);
+  box-shadow:0 0 15px rgba(255,255,255,.9);
+  transition:left 1s cubic-bezier(0.34,1.56,0.64,1);
+  left:50%;transform:translateX(-50%);
+  animation:needlePulse 1s infinite alternate;
 }
-#phlabels{display:flex;justify-content:space-between;padding:2px 0;font-size:9px;color:#334455;}
+@keyframes needlePulse{
+  from{box-shadow:0 0 10px rgba(255,255,255,0.8);}
+  to{box-shadow:0 0 20px rgba(255,255,255,1);}
+}
 
-/* log */
-#logwrap{flex:1;overflow-y:auto;padding:10px 12px;min-height:0;}
-#logwrap h3{font-size:9px;color:#2a4055;letter-spacing:2px;margin-bottom:7px;font-weight:normal;}
+/* Log entries animation */
 .le{
   font-size:10px;line-height:1.6;padding:4px 8px;margin-bottom:3px;
   border-left:2px solid #162030;color:#3a5568;
-  animation:lein .3s ease;
+  animation:logEntry .3s ease-out;
+  transform-origin:left;
 }
-@keyframes lein{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:none;}}
-.le.h{border-left-color:#00d4ff;color:#7aaacc;}
+@keyframes logEntry{
+  from{opacity:0;transform:translateX(-10px) scaleX(0.9);}
+  to{opacity:1;transform:translateX(0) scaleX(1);}
+}
+.le.h{border-left-color:#00d4ff;color:#7aaacc;animation:glowBlue 2s infinite;}
 .le.w{border-left-color:#ff9500;color:#bb7700;}
 .le.s{border-left-color:#33ee88;color:#18994a;}
 .le.rx{border-left-color:#c077ff;color:#9944cc;}
+
+@keyframes glowBlue{
+  0%,100%{text-shadow:0 0 2px #00d4ff;}
+  50%{text-shadow:0 0 8px #00d4ff;}
+}
+
+/* Molecular viewer (new feature) */
+#molecule-viewer{
+  position:fixed;bottom:20px;right:20px;width:150px;height:150px;
+  background:rgba(10,20,30,0.8);border-radius:10px;
+  border:1px solid #00d4ff;backdrop-filter:blur(5px);
+  display:none;flex-direction:column;z-index:100;
+}
+.molecule-atom{
+  position:absolute;border-radius:50%;
+  transition:all 0.5s;
+}
+@keyframes orbit{
+  from{transform:rotate(0deg) translateX(30px) rotate(0deg);}
+  to{transform:rotate(360deg) translateX(30px) rotate(-360deg);}
+}
 </style>
 </head>
 <body>
 <div id="app">
-
   <div id="topbar">
-    <div class="logo">⚗ CHEM LAB 3D</div>
-    <div class="ver">VIRTUAL LABORATORY v3.0</div>
+    <div class="logo">⚗ 3D CHEMISTRY LAB</div>
+    <div class="ver">ADVANCED SIMULATION v4.0</div>
     <div id="phdisp">pH: —</div>
   </div>
 
   <div id="body">
     <div id="labwrap">
+      <div id="particles"></div>
       <canvas id="bgcanvas"></canvas>
       <div id="overlay">
-        <!-- All equipment divs injected here by JS -->
         <div id="flame-el"></div>
         <div id="steam-container"></div>
+        <div id="smoke-container"></div>
       </div>
     </div>
 
     <div id="sidebar">
       <div id="expsel">
-        <h3>▸ SELECT EXPERIMENT</h3>
+        <h3 style="color:#00d4ff;letter-spacing:2px;margin-bottom:12px;font-size:11px;">▸ SELECT EXPERIMENT</h3>
         <div class="eopt act" onclick="selExp(0,this)">
-          🔴 Acid-Base Neutralisation<br>
+          <span style="color:#ff4466;">🔥</span> Acid-Base Neutralisation<br>
           <span style="color:#1e3248;font-size:9px">HCl + NaOH → NaCl + H₂O</span>
         </div>
         <div class="eopt" onclick="selExp(1,this)">
-          🟠 Combustion Reaction<br>
+          <span style="color:#ffaa00;">⚡</span> Combustion Reaction<br>
           <span style="color:#1e3248;font-size:9px">CH₄ + 2O₂ → CO₂ + 2H₂O</span>
         </div>
         <div class="eopt" onclick="selExp(2,this)">
-          🟢 Acid-Base Titration<br>
+          <span style="color:#33ee88;">🧪</span> Acid-Base Titration<br>
           <span style="color:#1e3248;font-size:9px">CH₃COOH + NaOH → Salt</span>
         </div>
         <div class="eopt" onclick="selExp(3,this)">
-          🟣 Redox Reaction<br>
+          <span style="color:#c077ff;">✨</span> Redox Reaction<br>
           <span style="color:#1e3248;font-size:9px">KMnO₄ + H₂O₂ → MnO₂</span>
         </div>
       </div>
 
       <div id="ctrl">
-        <h3>▸ CONTROLS</h3>
+        <h3 style="color:#00d4ff;letter-spacing:2px;margin-bottom:12px;font-size:11px;">▸ CONTROLS</h3>
         <div id="btns"></div>
       </div>
 
-      <div id="phbar-wrap">
+      <div id="phbar-wrap" style="margin:15px 12px;">
         <div id="phbar-track"><div id="phneedle"></div></div>
-        <div id="phlabels"><span>0</span><span>3</span><span>7</span><span>10</span><span>14</span></div>
+        <div id="phlabels" style="display:flex;justify-content:space-between;padding:2px 0;font-size:9px;color:#3a5a7a;">
+          <span>0</span><span>3</span><span>7</span><span>10</span><span>14</span>
+        </div>
       </div>
 
-      <div id="logwrap">
-        <h3>▸ LAB JOURNAL</h3>
+      <div id="logwrap" style="flex:1;overflow-y:auto;padding:10px 12px;min-height:0;">
+        <h3 style="color:#00d4ff;letter-spacing:2px;margin-bottom:12px;font-size:11px;">▸ LAB JOURNAL</h3>
         <div id="loglist"></div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Molecular Viewer (hidden initially) -->
+<div id="molecule-viewer"></div>
+
 <script>
-/* ════════════════════════════════════════════════
-   CANVAS 3D ROOM RENDERER
-   ════════════════════════════════════════════════ */
+/* =============================================
+   3D CANVAS ROOM RENDERER WITH ENHANCED EFFECTS
+   ============================================= */
 const canvas = document.getElementById('bgcanvas');
 const ctx = canvas.getContext('2d');
+let particles = [];
+
+// Particle system for floating dust
+function initParticles() {
+  const particleContainer = document.getElementById('particles');
+  for(let i = 0; i < 50; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.width = p.style.height = (1 + Math.random() * 3) + 'px';
+    p.style.animationDelay = Math.random() * 5 + 's';
+    p.style.animationDuration = (8 + Math.random() * 10) + 's';
+    particleContainer.appendChild(p);
+  }
+}
+initParticles();
 
 function resizeCanvas(){
   const wrap = document.getElementById('labwrap');
@@ -326,47 +439,59 @@ function drawRoom(){
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
 
-  // Horizon line (where wall meets floor)
-  const hor = H * 0.62;
-  // Vanishing point
-  const vpx = W * 0.5, vpy = H * 0.2;
+  // Animated horizon with slight movement
+  const time = Date.now() / 1000;
+  const hor = H * 0.62 + Math.sin(time * 0.2) * 3;
+  const vpx = W * 0.5 + Math.sin(time * 0.1) * 5;
+  const vpy = H * 0.2;
 
-  /* ── BACK WALL ── */
+  /* BACK WALL with animated gradient */
   const wallGrad = ctx.createLinearGradient(0, 0, 0, hor);
   wallGrad.addColorStop(0, '#b8cfe0');
-  wallGrad.addColorStop(1, '#cddaec');
+  wallGrad.addColorStop(0.5 + Math.sin(time * 0.3) * 0.05, '#cddaec');
+  wallGrad.addColorStop(1, '#aabbd0');
   ctx.fillStyle = wallGrad;
   ctx.fillRect(0, 0, W, hor);
 
-  // Wall grid lines
-  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  // Animated wall grid lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.05)';
   ctx.lineWidth = 1;
-  for(let x=0; x<W; x+=100){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,hor);ctx.stroke(); }
-  for(let y=0; y<hor; y+=90){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+  for(let x=0; x<W; x+=80 + Math.sin(time + x) * 10){ 
+    ctx.beginPath();
+    ctx.moveTo(x,0);
+    ctx.lineTo(x + Math.sin(time) * 20, hor);
+    ctx.stroke(); 
+  }
+  for(let y=0; y<hor; y+=70 + Math.sin(time + y) * 10){ 
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(W, y + Math.cos(time) * 20);
+    ctx.stroke(); 
+  }
 
-  /* ── LEFT SIDE WALL ── */
+  /* LEFT SIDE WALL with parallax */
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(W*0.08, vpy);
-  ctx.lineTo(W*0.08, hor);
+  ctx.lineTo(W*0.08 + Math.sin(time) * 5, vpy);
+  ctx.lineTo(W*0.08 + Math.cos(time) * 5, hor);
   ctx.lineTo(0, hor);
   ctx.closePath();
   const lwGrad = ctx.createLinearGradient(0,0,W*0.08,0);
   lwGrad.addColorStop(0,'#8898b8'); lwGrad.addColorStop(1,'#aabbd0');
   ctx.fillStyle = lwGrad; ctx.fill();
 
-  /* ── RIGHT SIDE WALL ── */
+  /* RIGHT SIDE WALL */
   ctx.beginPath();
   ctx.moveTo(W, 0);
-  ctx.lineTo(W*0.92, vpy);
-  ctx.lineTo(W*0.92, hor);
+  ctx.lineTo(W*0.92 + Math.sin(time) * 5, vpy);
+  ctx.lineTo(W*0.92 + Math.cos(time) * 5, hor);
   ctx.lineTo(W, hor);
   ctx.closePath();
   const rwGrad = ctx.createLinearGradient(W,0,W*0.92,0);
   rwGrad.addColorStop(0,'#8898b8'); rwGrad.addColorStop(1,'#aabbd0');
   ctx.fillStyle = rwGrad; ctx.fill();
 
-  /* ── FLOOR ── */
+  /* FLOOR with animated tiles */
   ctx.beginPath();
   ctx.moveTo(0, hor); ctx.lineTo(W, hor); ctx.lineTo(W, H); ctx.lineTo(0, H);
   ctx.closePath();
@@ -374,32 +499,31 @@ function drawRoom(){
   flGrad.addColorStop(0,'#6a7a96'); flGrad.addColorStop(1,'#46566e');
   ctx.fillStyle = flGrad; ctx.fill();
 
-  // Floor tiles - perspective lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  // Animated floor tiles
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
   ctx.lineWidth = 1;
-  // Horizontal floor lines (perspective)
-  for(let i=1; i<=5; i++){
-    const y = hor + (H-hor)*i/5;
+  for(let i=1; i<=6; i++){
+    const y = hor + (H-hor)*i/6 + Math.sin(time + i) * 5;
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
   }
-  // Vertical floor lines (converge to VP)
   for(let x=0; x<=W; x+=W/8){
-    ctx.beginPath(); ctx.moveTo(vpx, hor); ctx.lineTo(x, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(vpx + Math.sin(time) * 20, hor); ctx.lineTo(x + Math.cos(time) * 10, H); ctx.stroke();
   }
 
-  /* ── CEILING LIGHT ── */
+  /* CEILING LIGHT with pulsing effect */
   const lightX = W/2, lightW = W*0.28;
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  const pulseIntensity = 0.8 + Math.sin(time * 3) * 0.2;
+  ctx.fillStyle = `rgba(255,255,255,${pulseIntensity})`;
   ctx.fillRect(lightX - lightW/2, 0, lightW, 8);
-  // Glow
+  
   const glowGrad = ctx.createRadialGradient(lightX,4,0,lightX,4,lightW/2);
-  glowGrad.addColorStop(0,'rgba(210,235,255,0.55)');
+  glowGrad.addColorStop(0,`rgba(210,235,255,${0.4 + Math.sin(time)*0.1})`);
   glowGrad.addColorStop(1,'rgba(210,235,255,0)');
   ctx.fillStyle = glowGrad;
   ctx.ellipse(lightX, 4, lightW/2, 80, 0, 0, Math.PI*2);
   ctx.fill();
 
-  /* ── BLACKBOARD ── */
+  /* BLACKBOARD with animated text */
   const bbx = W*0.04, bby = H*0.03, bbw = W*0.24, bbh = H*0.35;
   ctx.fillStyle = '#1a2e18';
   roundRect(ctx, bbx, bby, bbw, bbh, 5);
@@ -407,106 +531,41 @@ function drawRoom(){
   ctx.strokeStyle = '#3d2e14'; ctx.lineWidth = 9;
   roundRect(ctx, bbx, bby, bbw, bbh, 5);
   ctx.stroke();
-  // BB text
+
+  // Animated blackboard text
   ctx.fillStyle = 'rgba(215,225,195,0.72)';
   ctx.font = '12px Courier New';
   ctx.fillText('HCl + NaOH →', bbx+14, bby+30);
-  ctx.fillStyle = 'rgba(255,230,80,0.75)';
+  ctx.fillStyle = `rgba(255,230,80,${0.7 + Math.sin(time)*0.2})`;
   ctx.fillText('  NaCl + H₂O', bbx+14, bby+52);
   ctx.fillStyle = 'rgba(215,225,195,0.55)';
   ctx.fillText('Neutralisation', bbx+14, bby+72);
   ctx.fillText('ΔH = −57.3 kJ/mol', bbx+14, bby+94);
-  ctx.fillStyle = 'rgba(255,230,80,0.7)';
-  ctx.fillText('pH indicator:', bbx+14, bby+118);
-  ctx.fillStyle = 'rgba(215,225,195,0.55)';
-  ctx.fillText('Phenolphthalein', bbx+14, bby+138);
-  // BB tray
-  ctx.fillStyle = '#4d3d1e';
-  ctx.fillRect(bbx-2, bby+bbh, bbw+4, 9);
+  ctx.fillStyle = `rgba(255,230,80,${0.7 + Math.sin(time*2)*0.2})`;
+  ctx.fillText('⚡ pH: ' + (window.currentPH ? window.currentPH.toFixed(1) : '7.0'), bbx+14, bby+118);
 
-  /* ── WINDOW ── */
+  /* WINDOW with animated light */
   const wx = W*0.72, wy = H*0.04, ww = W*0.2, wh = H*0.33;
   const winGrad = ctx.createLinearGradient(wx,wy,wx+ww,wy+wh);
-  winGrad.addColorStop(0,'#a0c8ff'); winGrad.addColorStop(1,'#c8e0ff');
+  winGrad.addColorStop(0,`rgba(160,200,255,${0.8 + Math.sin(time)*0.2})`);
+  winGrad.addColorStop(1,`rgba(200,224,255,${0.7 + Math.cos(time)*0.2})`);
   ctx.fillStyle = winGrad;
   roundRect(ctx,wx,wy,ww,wh,3); ctx.fill();
-  // Window glow
-  ctx.shadowColor = 'rgba(120,180,255,0.5)'; ctx.shadowBlur = 25;
+  
+  ctx.shadowColor = `rgba(120,180,255,${0.3 + Math.sin(time)*0.2})`; ctx.shadowBlur = 30;
   ctx.strokeStyle = '#3a4a68'; ctx.lineWidth = 10;
   roundRect(ctx,wx,wy,ww,wh,3); ctx.stroke();
   ctx.shadowBlur = 0;
-  // Panes
+
+  // Animated window panes
   ctx.strokeStyle = '#3a4a68'; ctx.lineWidth = 4;
-  ctx.beginPath();ctx.moveTo(wx,wy+wh/2);ctx.lineTo(wx+ww,wy+wh/2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(wx+ww/2,wy);ctx.lineTo(wx+ww/2,wy+wh);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(wx,wy+wh/2 + Math.sin(time)*3);ctx.lineTo(wx+ww,wy+wh/2 + Math.cos(time)*3);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(wx+ww/2 + Math.cos(time)*3,wy);ctx.lineTo(wx+ww/2 + Math.sin(time)*3,wy+wh);ctx.stroke();
 
-  /* ── BACK WALL CABINETS ── */
-  const cabY = H*0.02, cabH = H*0.38;
-  const cabStartX = W*0.32, cabEndX = W*0.70;
-  const numCabs = 5, cabW = (cabEndX-cabStartX)/numCabs;
-  const glassIdxs = [1,2,4];
-  for(let i=0;i<numCabs;i++){
-    const cx = cabStartX + i*cabW;
-    ctx.fillStyle = glassIdxs.includes(i) ? 'rgba(140,180,220,0.1)' : '#2d3d5a';
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
-    roundRect(ctx,cx+2,cabY,cabW-4,cabH,3);
-    ctx.fill(); ctx.stroke();
-    // Door inset
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)'; ctx.lineWidth = 1;
-    roundRect(ctx,cx+9,cabY+8,cabW-18,cabH-18,2);
-    ctx.fill(); ctx.stroke();
-    // Handle
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fillRect(cx+cabW/2-10, cabY+cabH-16, 20, 5);
-  }
-
-  /* ── LAB BENCH ── */
-  const benchY = hor - 2;
-  const benchTop = 22, benchFront = 75;
-  const bx = W*0.05, bw = W*0.9;
-
-  // Bench side shadow
-  ctx.fillStyle = '#0a1020';
-  ctx.fillRect(bx-12, benchY, 12, benchTop+benchFront);
-  ctx.fillRect(bx+bw, benchY, 12, benchTop+benchFront);
-
-  // Bench top surface
-  const btGrad = ctx.createLinearGradient(0, benchY, 0, benchY+benchTop);
-  btGrad.addColorStop(0,'#4a62a0'); btGrad.addColorStop(0.5,'#2e3e7c'); btGrad.addColorStop(1,'#1e2e5c');
-  ctx.fillStyle = btGrad;
-  roundRect(ctx,bx,benchY,bw,benchTop,4);
-  ctx.fill();
-  // Bench top sheen
-  ctx.fillStyle = 'rgba(255,255,255,0.16)';
-  ctx.fillRect(bx+bw*0.1, benchY+3, bw*0.8, 3);
-
-  // Bench front
-  const bfGrad = ctx.createLinearGradient(0, benchY+benchTop, 0, benchY+benchTop+benchFront);
-  bfGrad.addColorStop(0,'#182240'); bfGrad.addColorStop(1,'#0d1528');
-  ctx.fillStyle = bfGrad;
-  roundRect(ctx,bx,benchY+benchTop,bw,benchFront,4);
-  ctx.fill();
-
-  // Bench drawers
-  const numD = 7, dw = bw/numD;
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
-  for(let i=1;i<numD;i++){
-    ctx.beginPath();
-    ctx.moveTo(bx+i*dw, benchY+benchTop);
-    ctx.lineTo(bx+i*dw, benchY+benchTop+benchFront);
-    ctx.stroke();
-  }
-  // Drawer handles
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  for(let i=0;i<numD;i++){
-    ctx.fillRect(bx+i*dw+dw/2-12, benchY+benchTop+benchFront/2-3, 24, 5);
-  }
-
-  // Store bench geometry for equipment placement
+  // Store bench geometry
   window.benchGeo = {
-    x: bx, y: benchY, w: bw,
-    surfaceY: benchY  // top of bench surface = base for equipment
+    x: W*0.05, y: hor, w: W*0.9,
+    surfaceY: hor
   };
 }
 
@@ -520,24 +579,18 @@ function roundRect(ctx, x, y, w, h, r){
   ctx.closePath();
 }
 
-/* ════════════════════════════════════════════════
-   EQUIPMENT DOM BUILDER
-   ════════════════════════════════════════════════ */
-let eqBuilt = false;
-
+/* =============================================
+   ENHANCED EQUIPMENT POSITIONING
+   ============================================= */
 function positionEquipment(){
   if(!window.benchGeo) return;
   const ov = document.getElementById('overlay');
   const {x, y, w} = window.benchGeo;
 
-  // Clear previous equipment (not flame/steam)
   ov.querySelectorAll('.eitem').forEach(e=>e.remove());
 
-  const baseY = y; // Equipment sits on top of bench
-
-  // Equipment positions as fractions of bench width + offsets
+  const baseY = y;
   const positions = [
-    // [id, left fraction along bench, width, height above bench]
     {id:'stand_group',  lf:0.04, W:88,  H:220},
     {id:'bset_group',   lf:0.19, W:80,  H:180},
     {id:'cyl_group',    lf:0.32, W:36,  H:130},
@@ -555,6 +608,11 @@ function positionEquipment(){
     ov.appendChild(el);
   });
 
+  buildEnhancedGlassware();
+  positionFlame();
+}
+
+function buildEnhancedGlassware(){
   buildRetortStand();
   buildBurnerSet();
   buildCylinder();
@@ -562,15 +620,15 @@ function positionEquipment(){
   buildAlcBottle();
   buildRack();
   buildMicroscope();
-  positionFlame();
 }
 
 function buildRetortStand(){
   const g = document.getElementById('stand_group');
+  if(!g) return;
   g.innerHTML = `
-    <div style="position:absolute;bottom:0;left:35px;width:8px;height:100%;background:linear-gradient(90deg,#666,#aaa,#666);border-radius:4px;box-shadow:2px 0 7px rgba(0,0,0,.4)">
+    <div style="position:absolute;bottom:0;left:35px;width:8px;height:100%;background:linear-gradient(90deg,#888,#aaa,#888);border-radius:4px;box-shadow:2px 0 7px rgba(0,0,0,.4);animation:standPulse 3s infinite;">
       <div style="position:absolute;right:-27px;top:65px;width:25px;height:10px;background:linear-gradient(180deg,#888,#555);border-radius:3px;"></div>
-      <div style="position:absolute;right:-44px;top:57px;width:30px;height:25px;border:3px solid #888;border-radius:50%;"></div>
+      <div style="position:absolute;right:-44px;top:57px;width:30px;height:25px;border:3px solid #888;border-radius:50%;animation:clampRotate 4s infinite;"></div>
     </div>
     <div style="position:absolute;bottom:0;left:0;right:0;height:11px;background:linear-gradient(180deg,#888,#444);border-radius:3px;box-shadow:0 4px 9px rgba(0,0,0,.5);"></div>
     <div id="flask_wrap" style="position:absolute;left:34px;bottom:78px;">
@@ -579,6 +637,7 @@ function buildRetortStand(){
         <div id="flask_liq" class="liquid" style="height:0%;background:linear-gradient(rgba(255,80,50,.65),rgba(200,30,10,.92));border-radius:0 0 40% 40%;"></div>
         <div class="glass-shine" style="height:18px;"></div>
         <div id="flask_flash" class="flash-over"></div>
+        <div class="bubble-layer" id="flask_bubbles"></div>
       </div>
     </div>
     <div class="ilabel">Erlenmeyer</div>
@@ -587,17 +646,13 @@ function buildRetortStand(){
 
 function buildBurnerSet(){
   const g = document.getElementById('bset_group');
+  if(!g) return;
   g.innerHTML = `
     <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:34px;height:9px;background:linear-gradient(180deg,#555,#222);border-radius:3px;box-shadow:0 3px 7px rgba(0,0,0,.5);"></div>
-    <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:14px;height:28px;background:linear-gradient(90deg,#555,#888,#555);border-radius:3px 3px 0 0;position:relative;">
-      <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:14px;height:28px;background:linear-gradient(90deg,#555,#888,#555);border-radius:3px 3px 0 0;">
-        <div style="position:absolute;right:-11px;bottom:0;width:5px;height:10px;background:#444;border-radius:2px;"></div>
-      </div>
-    </div>
-    <div style="position:absolute;bottom:37px;left:50%;transform:translateX(-50%);width:52px;height:7px;background:repeating-linear-gradient(90deg,#555 0,#555 3px,transparent 3px,transparent 8px);border:1px solid #555;border-radius:2px;"></div>
+    <div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:14px;height:28px;background:linear-gradient(90deg,#555,#888,#555);border-radius:3px 3px 0 0;position:relative;"></div>
     <div style="position:absolute;bottom:37px;left:50%;transform:translateX(-50%);width:60px;height:38px;">
-      <div style="position:absolute;bottom:0;left:5px;width:3px;height:36px;background:#666;border-radius:2px;transform:rotate(13deg);transform-origin:bottom;"></div>
-      <div style="position:absolute;bottom:0;right:5px;width:3px;height:36px;background:#666;border-radius:2px;transform:rotate(-13deg);transform-origin:bottom;"></div>
+      <div style="position:absolute;bottom:0;left:5px;width:3px;height:36px;background:#666;border-radius:2px;transform:rotate(13deg);transform-origin:bottom;animation:rodVibrate 0.2s infinite alternate;"></div>
+      <div style="position:absolute;bottom:0;right:5px;width:3px;height:36px;background:#666;border-radius:2px;transform:rotate(-13deg);transform-origin:bottom;animation:rodVibrate 0.2s infinite alternate-reverse;"></div>
     </div>
     <div id="beaker_wrap" style="position:absolute;bottom:75px;left:50%;transform:translateX(-50%);width:56px;">
       <div id="beaker_el" class="beaker-outer glass-container" style="width:56px;height:64px;position:relative;overflow:hidden;">
@@ -614,16 +669,11 @@ function buildBurnerSet(){
 
 function buildCylinder(){
   const g = document.getElementById('cyl_group');
+  if(!g) return;
   g.innerHTML = `
     <div style="width:26px;height:108px;margin:0 auto;background:rgba(180,220,255,.16);border:2px solid rgba(140,190,255,.4);border-radius:3px 3px 8px 8px;position:relative;overflow:hidden;box-shadow:inset -3px 0 8px rgba(0,80,200,.1);">
-      <div style="position:absolute;right:3px;top:6px;display:flex;flex-direction:column;gap:11px;">
-        <div style="width:6px;height:1px;background:rgba(100,160,220,.55);"></div>
-        <div style="width:6px;height:1px;background:rgba(100,160,220,.55);"></div>
-        <div style="width:6px;height:1px;background:rgba(100,160,220,.55);"></div>
-        <div style="width:6px;height:1px;background:rgba(100,160,220,.55);"></div>
-        <div style="width:6px;height:1px;background:rgba(100,160,220,.55);"></div>
-      </div>
       <div id="cyl_liq" class="liquid" style="height:38%;background:linear-gradient(rgba(0,150,255,.42),rgba(0,100,200,.78));border-radius:0 0 6px 6px;"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);animation:cylinderShine 3s infinite;"></div>
     </div>
     <div style="width:38px;height:7px;background:rgba(120,180,255,.25);border:1px solid rgba(120,180,255,.35);border-radius:3px;margin-left:-6px;"></div>
     <div class="ilabel">Cylinder</div>
@@ -632,12 +682,13 @@ function buildCylinder(){
 
 function buildWaterBottle(){
   const g = document.getElementById('water_group');
+  if(!g) return;
   g.innerHTML = `
-    <div style="width:16px;height:10px;background:linear-gradient(#1a88cc,#0a5588);border-radius:3px 3px 0 0;margin:0 auto;"></div>
+    <div style="width:16px;height:10px;background:linear-gradient(#1a88cc,#0a5588);border-radius:3px 3px 0 0;margin:0 auto;animation:bottleCap 2s infinite;"></div>
     <div style="width:13px;height:22px;background:rgba(180,220,255,.26);border:2px solid rgba(140,190,255,.38);border-radius:2px 2px 0 0;margin:0 auto;"></div>
     <div class="bottle-body" style="width:44px;height:94px;position:relative;overflow:hidden;">
       <div class="liquid" style="position:absolute;bottom:0;width:100%;height:70%;background:linear-gradient(rgba(150,210,255,.35),rgba(80,160,240,.7));border-radius:0 0 5px 5px;"></div>
-      <div class="bottle-label">H₂O</div>
+      <div class="bottle-label" style="background:rgba(255,255,255,.9);color:#0a3060;">H₂O</div>
     </div>
     <div class="ilabel">Water</div>
   `;
@@ -645,6 +696,7 @@ function buildWaterBottle(){
 
 function buildAlcBottle(){
   const g = document.getElementById('alc_group');
+  if(!g) return;
   g.innerHTML = `
     <div style="width:15px;height:10px;background:linear-gradient(#883300,#551100);border-radius:3px 3px 0 0;margin:0 auto;"></div>
     <div style="width:12px;height:20px;background:rgba(255,220,120,.22);border:2px solid rgba(220,180,80,.38);border-radius:2px 2px 0 0;margin:0 auto;"></div>
@@ -658,10 +710,11 @@ function buildAlcBottle(){
 
 function buildRack(){
   const g = document.getElementById('rack_group');
+  if(!g) return;
   g.innerHTML = `
     <div style="width:115px;height:12px;background:linear-gradient(180deg,#777,#444);border-radius:4px;box-shadow:0 3px 7px rgba(0,0,0,.4);position:relative;z-index:2;">
       ${[0,1,2,3].map(i=>`
-        <div id="tt${i}" class="test-tube" style="position:absolute;bottom:10px;left:${8+i*28}px;width:16px;height:70px;">
+        <div id="tt${i}" class="test-tube" style="position:absolute;bottom:10px;left:${8+i*28}px;width:16px;height:70px;animation:tubeWobble ${2+i*0.2}s infinite alternate;">
           <div id="ttl${i}" class="liquid" style="height:${[42,54,37,50][i]}%;background:${['linear-gradient(rgba(255,80,80,.5),rgba(200,30,30,.9))','linear-gradient(rgba(80,180,255,.5),rgba(0,130,220,.9))','linear-gradient(rgba(80,220,130,.5),rgba(0,170,80,.9))','linear-gradient(rgba(200,140,255,.5),rgba(140,50,220,.9))'][i]};border-radius:0 0 10px 10px;"></div>
         </div>
       `).join('')}
@@ -673,6 +726,7 @@ function buildRack(){
 
 function buildMicroscope(){
   const g = document.getElementById('scope_group');
+  if(!g) return;
   g.innerHTML = `
     <div style="position:absolute;bottom:11px;left:30px;width:9px;height:88px;background:linear-gradient(90deg,#777,#999,#666);border-radius:4px;"></div>
     <div style="position:absolute;bottom:90px;left:8px;width:36px;height:17px;background:linear-gradient(180deg,#888,#555);border-radius:5px;transform:rotate(-10deg);"></div>
@@ -689,7 +743,6 @@ function positionFlame(){
   const g = document.getElementById('bset_group');
   if(!g) return;
   const flame = document.getElementById('flame-el');
-  const rect = g.getBoundingClientRect();
   const labRect = document.getElementById('labwrap').getBoundingClientRect();
   const bkEl = document.getElementById('beaker_wrap');
   if(!bkEl) return;
@@ -700,14 +753,75 @@ function positionFlame(){
     top:${bkRect.top - labRect.top + bkRect.height + 14}px;
     width:24px;height:50px;
     opacity:0;
+    z-index:4;
   `;
 }
 
-/* ════════════════════════════════════════════════
-   HELPERS
-   ════════════════════════════════════════════════ */
+/* =============================================
+   ENHANCED EFFECTS
+   ============================================= */
+function createBubbles(container, count = 3) {
+  if(!container) return;
+  for(let i = 0; i < count; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    b.style.cssText = `
+      left:${20 + Math.random() * 40}%;
+      bottom:${Math.random() * 30}px;
+      width:${3 + Math.random() * 6}px;
+      height:${3 + Math.random() * 6}px;
+      background:rgba(255,255,255,${0.5 + Math.random() * 0.4});
+      animation:bubbleRise ${1 + Math.random() * 2}s ease-out forwards;
+    `;
+    container.appendChild(b);
+    setTimeout(() => b.remove(), 3000);
+  }
+}
+
+function createSteam(container, count = 2) {
+  if(!container) return;
+  for(let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'steam-particle';
+    s.style.cssText = `
+      left:${30 + Math.random() * 40}%;
+      bottom:${40 + Math.random() * 30}px;
+      width:${8 + Math.random() * 12}px;
+      height:${8 + Math.random() * 12}px;
+      --dx:${(Math.random() - 0.5) * 50}px;
+      background:rgba(255,255,255,${0.2 + Math.random() * 0.3});
+      animation:steamRise ${2 + Math.random() * 3}s ease-out forwards;
+    `;
+    container.appendChild(s);
+    setTimeout(() => s.remove(), 4000);
+  }
+}
+
+function createSmoke(container, count = 1) {
+  if(!container) return;
+  for(let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'smoke-particle';
+    s.style.cssText = `
+      left:${40 + Math.random() * 20}%;
+      bottom:${50 + Math.random() * 20}px;
+      width:${15 + Math.random() * 20}px;
+      height:${15 + Math.random() * 20}px;
+      background:rgba(100,100,100,${0.2 + Math.random() * 0.2});
+      animation:smokeRise ${4 + Math.random() * 3}s ease-out forwards;
+    `;
+    container.appendChild(s);
+    setTimeout(() => s.remove(), 5000);
+  }
+}
+
+/* =============================================
+   EXPERIMENT STATE MANAGEMENT
+   ============================================= */
 const tmrs = [];
 let S = {};
+let curExp = 0;
+window.currentPH = null;
 
 function setLiq(id, h, bg){
   const el = document.getElementById(id);
@@ -719,81 +833,84 @@ function setLiq(id, h, bg){
 function doFlash(id){
   const el = document.getElementById(id);
   if(!el) return;
-  el.style.background = 'rgba(255,255,255,.65)';
-  setTimeout(()=>{ el.style.background='transparent'; }, 280);
+  el.style.background = 'rgba(255,255,255,.8)';
+  setTimeout(()=>{ el.style.background='transparent'; }, 200);
+  setTimeout(()=>{ el.style.background = 'rgba(255,255,255,.4)'; }, 50);
+  setTimeout(()=>{ el.style.background='transparent'; }, 150);
 }
 
 function flameOn(on){
   const f = document.getElementById('flame-el');
-  if(f) f.style.opacity = on ? '1' : '0';
+  if(f) {
+    f.style.opacity = on ? '1' : '0';
+    if(on) {
+      // Create periodic flame effects
+      const interval = setInterval(() => {
+        if(f.style.opacity === '1') {
+          createSmoke(document.getElementById('smoke-container'), 1);
+        }
+      }, 500);
+      tmrs.push(interval);
+    }
+  }
 }
 
 function startBoiling(){
   const iv = setInterval(()=>{
     const bb = document.getElementById('beaker_bub');
-    if(bb){
-      for(let i=0;i<3;i++){
-        const b=document.createElement('div');
-        b.className='bub';
-        b.style.cssText=`width:${3+Math.random()*5}px;height:${3+Math.random()*5}px;left:${4+Math.random()*38}px;bottom:${4+Math.random()*14}px;animation-delay:${Math.random()*.6}s;animation-duration:${.9+Math.random()*.9}s`;
-        bb.appendChild(b); setTimeout(()=>b.remove(),2000);
-      }
-    }
+    if(bb) createBubbles(bb, 2);
     const sh = document.getElementById('steam_here');
-    if(sh){
-      for(let i=0;i<2;i++){
-        const s=document.createElement('div');
-        s.className='steam-p';
-        s.style.cssText=`width:${7+Math.random()*9}px;height:${7+Math.random()*9}px;left:${8+Math.random()*28}px;bottom:${20+Math.random()*18}px;--sx:${(Math.random()-.5)*36}px;animation-delay:${Math.random()*.4}s;animation-duration:${1.8+Math.random()}s`;
-        sh.appendChild(s); setTimeout(()=>s.remove(),3000);
-      }
-    }
-  }, 340);
+    if(sh) createSteam(sh, 1);
+  }, 300);
   tmrs.push(iv);
 }
 
 function stopBoiling(){
-  const bb=document.getElementById('beaker_bub');
-  const sh=document.getElementById('steam_here');
-  if(bb) bb.innerHTML='';
-  if(sh) sh.innerHTML='';
+  const bb = document.getElementById('beaker_bub');
+  const sh = document.getElementById('steam_here');
+  const sm = document.getElementById('smoke-container');
+  if(bb) bb.innerHTML = '';
+  if(sh) sh.innerHTML = '';
+  if(sm) sm.innerHTML = '';
 }
 
 function setPH(v){
-  const n=document.getElementById('phneedle');
-  const d=document.getElementById('phdisp');
-  if(v===null||v===undefined){
-    n.style.left='50%'; d.textContent='pH: —';
-    d.style.color='#00d4ff'; d.style.borderColor='rgba(0,212,255,.3)';
+  window.currentPH = v;
+  const n = document.getElementById('phneedle');
+  const d = document.getElementById('phdisp');
+  if(v === null || v === undefined){
+    n.style.left = '50%'; 
+    d.textContent = 'pH: —';
+    d.style.color = '#00d4ff'; 
+    d.style.borderColor = 'rgba(0,212,255,.3)';
     return;
   }
-  n.style.left=(v/14*100)+'%';
-  d.textContent=`pH: ${(+v).toFixed(1)}`;
-  const h=v<7?Math.round(v/7*55):v===7?120:Math.round(120+(v-7)/7*220);
-  d.style.color=`hsl(${h},80%,62%)`;
-  d.style.borderColor=`hsla(${h},80%,55%,.45)`;
+  n.style.left = (v/14*100) + '%';
+  d.textContent = `pH: ${(+v).toFixed(1)}`;
+  const h = v<7 ? Math.round(v/7*55) : v===7 ? 120 : Math.round(120+(v-7)/7*220);
+  d.style.color = `hsl(${h},80%,62%)`;
+  d.style.borderColor = `hsla(${h},80%,55%,.45)`;
 }
-
-function setHead(t){ document.getElementById('phdisp').textContent=t; }
 
 function log(msg, cls=''){
-  const d=document.createElement('div');
-  d.className='le'+(cls?' '+cls:'');
-  const ts=new Date().toLocaleTimeString('en',{hour12:false});
-  d.textContent=`[${ts}] ${msg}`;
-  const list=document.getElementById('loglist');
+  const d = document.createElement('div');
+  d.className = 'le' + (cls ? ' ' + cls : '');
+  const ts = new Date().toLocaleTimeString('en', {hour12:false});
+  d.textContent = `[${ts}] ${msg}`;
+  const list = document.getElementById('loglist');
   list.prepend(d);
-  while(list.children.length>35) list.removeChild(list.lastChild);
+  while(list.children.length > 35) list.removeChild(list.lastChild);
 }
 
-function clearTmrs(){ tmrs.forEach(t=>{try{clearInterval(t);}catch(e){}});  tmrs.length=0; }
+function clearTmrs(){ 
+  tmrs.forEach(t=>{try{clearInterval(t);}catch(e){}});  
+  tmrs.length = 0; 
+}
 
-/* ════════════════════════════════════════════════
-   EXPERIMENTS
-   ════════════════════════════════════════════════ */
+/* =============================================
+   EXPERIMENTS DEFINITION
+   ============================================= */
 const EXPS = [
-
-  /* 0 ─ Acid-Base Neutralisation */
   { name:'Acid-Base Neutralisation', steps:[
     { lbl:'➕ Add HCl (Acid)', cls:'r',
       run(){
@@ -805,6 +922,7 @@ const EXPS = [
         log('Added 20 mL HCl. Solution is strongly acidic.','h');
         log('Colour: pale yellow. pH = 2.0','');
         S.acid=true; rb();
+        createBubbles(document.getElementById('beaker_bub'), 5);
       }
     },
     { lbl:'➕ Add NaOH (Base)', cls:'b', req:'acid',
@@ -827,8 +945,12 @@ const EXPS = [
         let t=25;
         const iv=setInterval(()=>{
           t=Math.min(100,t+3);
-          setHead(`pH: 7.0 | Temp: ${t}°C`);
-          if(t>=100){ clearInterval(iv); startBoiling(); log('Boiling! NaCl concentration increasing.','w'); }
+          document.getElementById('phdisp').innerHTML = `pH: 7.0 | Temp: ${t}°C`;
+          if(t>=100){ 
+            clearInterval(iv); 
+            startBoiling(); 
+            log('Boiling! NaCl concentration increasing.','w');
+          }
         },160);
         tmrs.push(iv);
       }
@@ -845,20 +967,18 @@ const EXPS = [
     },
     { lbl:'↺ Reset Lab', cls:'x', run(){ resetLab(); } }
   ]},
-
-  /* 1 ─ Combustion */
   { name:'Combustion Reaction', steps:[
     { lbl:'🔵 Load CH₄ Gas', cls:'b',
       run(){
         setLiq('beaker_liq', 26, 'linear-gradient(rgba(100,180,255,.28),rgba(60,140,220,.55))');
         log('Methane (CH₄) loaded into combustion chamber.','h');
-        log('Colourless gas — not visible.','');
         S.gas=true; rb();
       }
     },
     { lbl:'🔥 Ignite', cls:'o', req:'gas',
       run(){
-        flameOn(true); doFlash('flask_flash');
+        flameOn(true); 
+        doFlash('flask_flash');
         setLiq('flask_liq', 28, 'linear-gradient(rgba(255,220,50,.38),rgba(255,180,20,.68))');
         log('Spark applied! Combustion initiated.','rx');
         log('CH₄ + 2O₂ → CO₂ + 2H₂O + heat','rx');
@@ -867,8 +987,11 @@ const EXPS = [
         let t=25;
         const iv=setInterval(()=>{
           t=Math.min(860,t+22);
-          setHead(`COMBUSTION | ${Math.round(t)}°C`);
-          if(t>=860){ clearInterval(iv); log('Peak flame temp: ~860°C','w'); }
+          document.getElementById('phdisp').innerHTML = `COMBUSTION | ${Math.round(t)}°C`;
+          if(t>=860){ 
+            clearInterval(iv); 
+            log('Peak flame temp: ~860°C','w');
+          }
         },100);
         tmrs.push(iv);
         S.ignited=true; rb();
@@ -890,8 +1013,6 @@ const EXPS = [
     },
     { lbl:'↺ Reset Lab', cls:'x', run(){ resetLab(); } }
   ]},
-
-  /* 2 ─ Titration */
   { name:'Weak Acid Titration', steps:[
     { lbl:'🔵 Fill Burette (NaOH)', cls:'b',
       run(){
@@ -906,7 +1027,6 @@ const EXPS = [
         setLiq('beaker_liq', 34, 'linear-gradient(rgba(255,200,80,.5),rgba(220,150,20,.82))');
         setPH(3.5);
         log('25 mL of 0.1M CH₃COOH added.','h');
-        log('Weak acid, partial dissociation. pH = 3.5','');
         S.acid2=true; rb();
       }
     },
@@ -927,7 +1047,7 @@ const EXPS = [
           setPH(ph);
           const cy=Math.max(8,90-(vol*1.6));
           setLiq('cyl_liq', cy, 'linear-gradient(rgba(0,150,255,.45),rgba(0,100,200,.82))');
-          setHead(`pH: ${ph.toFixed(1)} | NaOH: ${vol.toFixed(1)} mL`);
+          document.getElementById('phdisp').innerHTML = `pH: ${ph.toFixed(1)} | NaOH: ${vol.toFixed(1)} mL`;
           if(vol>=25){
             clearInterval(iv);
             doFlash('flask_flash');
@@ -935,7 +1055,6 @@ const EXPS = [
             setLiq('beaker_liq', 54, 'linear-gradient(rgba(255,100,200,.55),rgba(200,20,130,.88))');
             setPH(8.7);
             log('✅ Equivalence point! V = 25.0 mL NaOH','s');
-            log('Pink colour appears → endpoint!','s');
             log('CH₃COOH + NaOH → CH₃COONa + H₂O','rx');
           }
         },180);
@@ -944,8 +1063,6 @@ const EXPS = [
     },
     { lbl:'↺ Reset Lab', cls:'x', run(){ resetLab(); } }
   ]},
-
-  /* 3 ─ Redox */
   { name:'Redox Reaction', steps:[
     { lbl:'🟣 Add KMnO₄', cls:'p',
       run(){
@@ -954,7 +1071,6 @@ const EXPS = [
         setLiq('ttl3', 55, 'linear-gradient(rgba(180,80,255,.65),rgba(120,20,220,.95))');
         setPH(1);
         log('KMnO₄ (deep purple) added as oxidising agent.','rx');
-        log('Acidified with H₂SO₄. pH = 1','w');
         S.kmno4=true; rb();
       }
     },
@@ -964,7 +1080,10 @@ const EXPS = [
         let step=0;
         const iv=setInterval(()=>{
           step++;
-          if(step===1){ log('Vigorous bubbling! O₂ gas evolving.','rx'); startBoiling(); }
+          if(step===1){ 
+            log('Vigorous bubbling! O₂ gas evolving.','rx'); 
+            startBoiling(); 
+          }
           if(step===3){
             setLiq('flask_liq', 50, 'linear-gradient(rgba(180,160,135,.55),rgba(120,98,72,.88))');
             setLiq('beaker_liq', 50, 'linear-gradient(rgba(180,160,135,.5),rgba(120,98,72,.82))');
@@ -989,8 +1108,11 @@ const EXPS = [
         let t=22;
         const iv=setInterval(()=>{
           t+=1.4;
-          setHead(`REDOX | ${t.toFixed(1)}°C`);
-          if(t>=38){ clearInterval(iv); log(`Peak: ${t.toFixed(1)}°C — mildly exothermic.`,'w'); }
+          document.getElementById('phdisp').innerHTML = `REDOX | ${t.toFixed(1)}°C`;
+          if(t>=38){ 
+            clearInterval(iv); 
+            log(`Peak: ${t.toFixed(1)}°C — mildly exothermic.`,'w');
+          }
         },140);
         tmrs.push(iv);
       }
@@ -999,65 +1121,94 @@ const EXPS = [
   ]}
 ];
 
-/* ════════════════════════════════════════════════
-   UI CONTROL
-   ════════════════════════════════════════════════ */
-let curExp=0;
-
+/* =============================================
+   UI CONTROLS
+   ============================================= */
 function rb(){
-  const exp=EXPS[curExp];
-  const area=document.getElementById('btns');
-  area.innerHTML='';
-  exp.steps.forEach(step=>{
-    const b=document.createElement('button');
-    b.className='lbtn '+step.cls;
-    b.textContent=step.lbl;
-    if(step.req && !S[step.req]) b.disabled=true;
-    b.onclick=()=>step.run();
+  const exp = EXPS[curExp];
+  const area = document.getElementById('btns');
+  area.innerHTML = '';
+  exp.steps.forEach(step => {
+    const b = document.createElement('button');
+    b.className = 'lbtn ' + step.cls;
+    b.textContent = step.lbl;
+    if(step.req && !S[step.req]) b.disabled = true;
+    b.onclick = () => step.run();
     area.appendChild(b);
   });
 }
 
 function selExp(idx, el){
-  document.querySelectorAll('.eopt').forEach(e=>e.classList.remove('act'));
+  document.querySelectorAll('.eopt').forEach(e => e.classList.remove('act'));
   el.classList.add('act');
-  curExp=idx;
+  curExp = idx;
   resetLab(false);
   log(`--- ${EXPS[idx].name} ---`,'h');
   rb();
 }
 
-function resetLab(addLog=true){
+function resetLab(addLog = true){
   clearTmrs();
-  S={};
-  setLiq('flask_liq',0);
-  setLiq('beaker_liq',0);
-  setLiq('cyl_liq',38,'linear-gradient(rgba(0,150,255,.42),rgba(0,100,200,.78))');
-  ['ttl0','ttl1','ttl2','ttl3'].forEach((id,i)=>{
-    const bgs=['linear-gradient(rgba(255,80,80,.5),rgba(200,30,30,.9))','linear-gradient(rgba(80,180,255,.5),rgba(0,130,220,.9))','linear-gradient(rgba(80,220,130,.5),rgba(0,170,80,.9))','linear-gradient(rgba(200,140,255,.5),rgba(140,50,220,.9))'];
-    const hs=[42,54,37,50];
-    setLiq(id, hs[i], bgs[i]);
-  });
   flameOn(false);
   stopBoiling();
+  S = {};
+  
+  setLiq('flask_liq', 0);
+  setLiq('beaker_liq', 0);
+  setLiq('cyl_liq', 38, 'linear-gradient(rgba(0,150,255,.42),rgba(0,100,200,.78))');
+  
+  ['ttl0','ttl1','ttl2','ttl3'].forEach((id,i)=>{
+    const bgs = [
+      'linear-gradient(rgba(255,80,80,.5),rgba(200,30,30,.9))',
+      'linear-gradient(rgba(80,180,255,.5),rgba(0,130,220,.9))',
+      'linear-gradient(rgba(80,220,130,.5),rgba(0,170,80,.9))',
+      'linear-gradient(rgba(200,140,255,.5),rgba(140,50,220,.9))'
+    ];
+    const hs = [42,54,37,50];
+    setLiq(id, hs[i], bgs[i]);
+  });
+  
   setPH(null);
   if(addLog) log('Lab reset. Ready.','');
   rb();
 }
 
-/* ════════════════════════════════════════════════
-   INIT & RESIZE
-   ════════════════════════════════════════════════ */
+/* =============================================
+   ANIMATION LOOP
+   ============================================= */
+function animate() {
+  requestAnimationFrame(animate);
+  drawRoom();
+}
+
+/* =============================================
+   INITIALIZATION
+   ============================================= */
 window.addEventListener('resize', ()=>{
   resizeCanvas();
   setTimeout(positionFlame, 100);
 });
 
-// Initial render
 resizeCanvas();
 setTimeout(positionFlame, 200);
 
+// Start animation loop
+animate();
+
+// Add custom CSS animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes standPulse { 0%,100%{opacity:1;} 50%{opacity:0.8;} }
+  @keyframes clampRotate { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+  @keyframes rodVibrate { from{transform:rotate(12deg);} to{transform:rotate(14deg);} }
+  @keyframes cylinderShine { 0%{transform:translateX(-100%);} 100%{transform:translateX(100%);} }
+  @keyframes bottleCap { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);} }
+  @keyframes tubeWobble { from{transform:rotate(-1deg);} to{transform:rotate(1deg);} }
+`;
+document.head.appendChild(style);
+
 log(`--- ${EXPS[0].name} ---`,'h');
+log('Welcome to the 3D Chemistry Lab!','h');
 log('Click a control step to begin the experiment.','');
 setPH(null);
 rb();
