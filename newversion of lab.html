@@ -1,0 +1,2252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Chemistry Lab - Real Physics & Task Progression</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0a0e1a, #1a2a3a);
+  font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* ===== 3D TOP BAR WITH GLASS EFFECT ===== */
+#topbar {
+  height: 70px;
+  min-height: 70px;
+  background: rgba(15, 25, 35, 0.8);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  z-index: 100;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+#topbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  20% { left: 100%; }
+  100% { left: 100%; }
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00d4ff, #ff44aa, #00d4ff);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 3s ease infinite;
+  letter-spacing: 1px;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.controls-hint {
+  display: flex;
+  gap: 30px;
+  color: #aabbcc;
+  font-size: 13px;
+}
+
+.hint-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.hint-key {
+  background: rgba(0, 212, 255, 0.2);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-weight: 600;
+  color: #00d4ff;
+  font-size: 12px;
+}
+
+#phdisp {
+  font-size: 16px;
+  padding: 8px 24px;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 30px;
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.1);
+  backdrop-filter: blur(5px);
+  font-weight: 600;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+#phdisp::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(transparent, rgba(0,212,255,0.3), transparent);
+  animation: rotate 4s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== MAIN BODY ===== */
+#body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+}
+
+/* ===== 3D LAB AREA ===== */
+#labwrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+/* 3D Room Canvas */
+#room-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+}
+
+/* 3D Equipment Container */
+#equipment-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  z-index: 2;
+}
+
+/* Equipment with 3D transforms */
+.equipment {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.5));
+  transform-style: preserve-3d;
+  transition: transform 0.1s, filter 0.2s;
+  will-change: transform;
+  z-index: 10;
+}
+
+.equipment:active {
+  cursor: grabbing;
+  filter: drop-shadow(0 20px 30px rgba(0, 212, 255, 0.6));
+}
+
+.equipment.dragging {
+  transition: none;
+  z-index: 1000;
+  filter: drop-shadow(0 25px 35px rgba(255, 68, 170, 0.6));
+}
+
+.equipment:hover {
+  transform: translateZ(20px);
+}
+
+/* 3D Glass Styles */
+.glass-3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: rgba(220, 240, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: inherit;
+  box-shadow: 
+    inset 0 0 30px rgba(255, 255, 255, 0.2),
+    0 10px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  transform: translateZ(5px);
+}
+
+.glass-3d::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.glass-3d::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* 3D Liquid with wave effect */
+.liquid-3d {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 20%);
+  transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.5s;
+  border-radius: 0 0 inherit inherit;
+  transform: translateZ(3px);
+  overflow: hidden;
+}
+
+.liquid-3d::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  filter: blur(3px);
+  animation: wave3d 2s ease-in-out infinite;
+}
+
+@keyframes wave3d {
+  0%, 100% { transform: translateY(0) scaleX(1); opacity: 0.5; }
+  50% { transform: translateY(-3px) scaleX(1.02); opacity: 0.8; }
+}
+
+/* 3D Beaker */
+.beaker-3d {
+  border-radius: 5px 5px 40px 40px;
+  transform: rotateX(2deg) rotateY(1deg);
+}
+
+.beaker-3d .lip {
+  position: absolute;
+  top: -5px;
+  left: -3px;
+  right: -3px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px 4px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transform: translateZ(6px);
+}
+
+/* 3D Flask */
+.flask-3d {
+  border-radius: 50% 50% 40px 40px;
+  transform: rotateX(3deg) rotateY(-2deg);
+}
+
+.flask-3d .neck {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(5px);
+  width: 35%;
+  height: 35px;
+  background: rgba(220, 240, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+}
+
+/* 3D Test Tube */
+.testtube-3d {
+  border-radius: 5px 5px 30px 30px;
+  transform: rotateX(4deg) rotateY(3deg);
+}
+
+.testtube-3d .rack {
+  position: absolute;
+  bottom: -12px;
+  left: -15px;
+  right: -15px;
+  height: 18px;
+  background: linear-gradient(180deg, #8b6b4d, #5d3e2a);
+  border-radius: 5px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  transform: translateZ(-2px);
+}
+
+/* 3D Bottle */
+.bottle-3d {
+  border-radius: 10px 10px 25px 25px;
+  transform: rotateX(2deg) rotateY(-3deg);
+}
+
+.bottle-3d .cap {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(8px);
+  width: 30px;
+  height: 10px;
+  background: linear-gradient(135deg, #aaa, #666);
+  border-radius: 5px 5px 2px 2px;
+}
+
+/* 3D Burner */
+.burner-3d {
+  transform: rotateX(1deg) rotateY(2deg);
+}
+
+.burner-3d .base {
+  position: absolute;
+  bottom: 0;
+  left: -5px;
+  right: -5px;
+  height: 25px;
+  background: linear-gradient(180deg, #777, #444);
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+.burner-3d .tube {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(5px);
+  width: 35px;
+  height: 70px;
+  background: linear-gradient(90deg, #666, #888, #666);
+  border-radius: 5px;
+}
+
+/* Realistic Flame with particles */
+.flame-3d {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 25px;
+  height: 0;
+  background: radial-gradient(ellipse at 50% 100%, #fff, #ffd700, #ff8c00, #ff4500);
+  border-radius: 50% 50% 20% 20%;
+  filter: blur(4px) drop-shadow(0 -10px 20px #ff8c00);
+  transition: height 0.3s, opacity 0.3s;
+  opacity: 0;
+  animation: flameFlicker 0.1s infinite alternate;
+  transform-origin: bottom center;
+  z-index: 20;
+}
+
+@keyframes flameFlicker {
+  0% { transform: translateX(-50%) scaleX(1) scaleY(1); filter: blur(4px); }
+  100% { transform: translateX(-50%) scaleX(0.9) scaleY(1.1); filter: blur(5px); }
+}
+
+/* Flame particles */
+.flame-particle {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 200, 100, 0.8);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: flameRise 1s ease-out forwards;
+  z-index: 15;
+}
+
+@keyframes flameRise {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50px) scale(0.5);
+  }
+}
+
+/* Smoke/Fume particles */
+.fume-particle {
+  position: absolute;
+  background: rgba(200, 200, 200, 0.3);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: fumeRise 3s ease-out forwards;
+  filter: blur(3px);
+  z-index: 25;
+}
+
+@keyframes fumeRise {
+  0% {
+    opacity: 0.6;
+    transform: translate(0, 0) scale(0.5);
+  }
+  50% {
+    opacity: 0.4;
+    transform: translate(10px, -30px) scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-10px, -80px) scale(2.5);
+  }
+}
+
+/* Droplets */
+.droplet {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  background: radial-gradient(circle at 30% 30%, #aaddff, #2288ff);
+  border-radius: 50% 50% 50% 10%;
+  transform: rotate(45deg);
+  pointer-events: none;
+  z-index: 100;
+  animation: dropletFall 0.8s linear forwards;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2));
+}
+
+@keyframes dropletFall {
+  0% {
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(45deg) scale(0.5) translateY(60px);
+  }
+}
+
+/* Bubbles */
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  animation: bubbleRise 2s ease-out forwards;
+  z-index: 30;
+}
+
+@keyframes bubbleRise {
+  0% {
+    opacity: 0.8;
+    transform: translateY(0) scale(0.5);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translateY(-30px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-80px) scale(2);
+  }
+}
+
+/* ===== GLASS SWEET ALERTS ===== */
+#alert-container {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  pointer-events: none;
+  width: 100%;
+  max-width: 500px;
+}
+
+.glass-alert {
+  background: rgba(30, 40, 55, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 30px;
+  padding: 18px 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: alertSlideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  width: 100%;
+  pointer-events: auto;
+  transform-origin: top;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-alert::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  animation: shimmer 2s infinite;
+}
+
+.glass-alert.info { border-left: 5px solid #00d4ff; }
+.glass-alert.success { border-left: 5px solid #33ee88; }
+.glass-alert.warning { border-left: 5px solid #ff9500; }
+.glass-alert.reaction { border-left: 5px solid #c077ff; }
+
+.alert-icon {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.alert-message {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.alert-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 16px;
+}
+
+.alert-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+@keyframes alertSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes alertSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+}
+
+/* Equipment Info Tooltip */
+.equipment-tooltip {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 40, 55, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  animation: tooltipFade 0.3s;
+  border-left: 3px solid #00d4ff;
+}
+
+.equipment-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(30, 40, 55, 0.9);
+}
+
+@keyframes tooltipFade {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ===== SIDEBAR WITH GLASS EFFECT ===== */
+#sidebar {
+  width: 340px;
+  min-width: 340px;
+  background: rgba(15, 25, 35, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-left: 1px solid rgba(0, 212, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 50;
+  box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-section {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-section h3 {
+  font-size: 13px;
+  color: #00d4ff;
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+  font-weight: 500;
+  text-transform: uppercase;
+  position: relative;
+  display: inline-block;
+}
+
+.sidebar-section h3::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background: #00d4ff;
+  animation: linePulse 2s infinite;
+}
+
+@keyframes linePulse {
+  0%, 100% { width: 30px; opacity: 1; }
+  50% { width: 50px; opacity: 0.7; }
+}
+
+/* Experiment Cards */
+.exp-card {
+  padding: 18px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+  overflow: hidden;
+}
+
+.exp-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,0.1), transparent);
+  transition: left 0.5s;
+}
+
+.exp-card:hover::before {
+  left: 100%;
+}
+
+.exp-card:hover {
+  border-color: #00d4ff;
+  transform: translateX(5px);
+  background: rgba(0, 212, 255, 0.05);
+  box-shadow: 0 5px 20px rgba(0, 212, 255, 0.2);
+}
+
+.exp-card.active {
+  border-color: #ff44aa;
+  background: rgba(255, 68, 170, 0.1);
+  box-shadow: 0 0 30px rgba(255, 68, 170, 0.3);
+}
+
+.exp-card .title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 5px;
+}
+
+.exp-card .desc {
+  font-size: 12px;
+  color: #aabbcc;
+}
+
+.exp-card .progress {
+  margin-top: 10px;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.exp-card .progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #00d4ff, #ff44aa);
+  width: 0%;
+  transition: width 0.5s;
+}
+
+/* Action Buttons */
+.action-btn {
+  width: 100%;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  border: 1px solid;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.action-btn:hover:not(:disabled)::before {
+  width: 300px;
+  height: 300px;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.action-btn .step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border: 1px solid currentColor;
+}
+
+.action-btn.acid { border-color: #ff4466; color: #ff4466; }
+.action-btn.base { border-color: #00d4ff; color: #00d4ff; }
+.action-btn.heat { border-color: #ff9500; color: #ff9500; }
+.action-btn.stir { border-color: #c077ff; color: #c077ff; }
+
+.action-btn.completed {
+  opacity: 0.6;
+  background: rgba(255,255,255,0.05);
+  pointer-events: none;
+}
+
+.action-btn.completed .step-number {
+  background: #33ee88;
+  border-color: #33ee88;
+  color: #000;
+}
+
+.action-btn.completed::after {
+  content: '✓';
+  position: absolute;
+  right: 20px;
+  color: #33ee88;
+  font-size: 20px;
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+/* Task Progress */
+.task-progress {
+  margin: 15px 0;
+  padding: 15px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 20px;
+}
+
+.task-progress .task-title {
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.task-progress .task-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.task-progress .task-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00d4ff, #ff44aa);
+  width: 0%;
+  transition: width 0.5s;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.task-progress .task-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: progressShimmer 2s infinite;
+}
+
+@keyframes progressShimmer {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+/* pH Meter */
+.ph-meter {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  padding: 18px;
+  margin: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.ph-bar {
+  height: 20px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ff2244, #ff8800, #ffdd00, #33dd66, #0088ff, #8800cc);
+  position: relative;
+  margin-bottom: 12px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.ph-needle {
+  position: absolute;
+  top: -5px;
+  width: 5px;
+  height: 30px;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 0 20px #fff, 0 0 40px #00d4ff;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 10;
+}
+
+.ph-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #aabbcc;
+  font-size: 11px;
+}
+
+/* Log Container */
+.log-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.log-entry {
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  border-left: 3px solid #334455;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 12px 12px 0;
+  font-size: 12px;
+  color: #aabbcc;
+  animation: logSlide 0.3s;
+  backdrop-filter: blur(5px);
+}
+
+@keyframes logSlide {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.log-entry.success { border-left-color: #33ee88; color: #aaffaa; }
+.log-entry.warning { border-left-color: #ff9500; color: #ffbb77; }
+.log-entry.reaction { border-left-color: #c077ff; color: #ddaaff; }
+
+/* Loading Overlay */
+#loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, #1a2a3a, #0a0e1a);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+  transition: opacity 0.8s;
+}
+
+.loader-3d {
+  width: 100px;
+  height: 100px;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: rotate3d 3s infinite linear;
+}
+
+.loader-3d div {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 4px solid #00d4ff;
+  border-radius: 10px;
+  box-shadow: 0 0 30px rgba(0,212,255,0.5);
+}
+
+.loader-3d .front { transform: translateZ(50px); }
+.loader-3d .back { transform: translateZ(-50px); }
+.loader-3d .top { transform: rotateX(90deg) translateZ(50px); }
+.loader-3d .bottom { transform: rotateX(-90deg) translateZ(50px); }
+.loader-3d .left { transform: rotateY(-90deg) translateZ(50px); }
+.loader-3d .right { transform: rotateY(90deg) translateZ(50px); }
+
+@keyframes rotate3d {
+  0% { transform: rotateX(0) rotateY(0); }
+  100% { transform: rotateX(360deg) rotateY(360deg); }
+}
+
+.loading-text {
+  color: #00d4ff;
+  font-size: 24px;
+  margin-top: 40px;
+  letter-spacing: 4px;
+  animation: pulse 1.5s infinite;
+  text-shadow: 0 0 20px rgba(0,212,255,0.5);
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div class="logo">⚗ 3D PHYSICS CHEM LAB</div>
+    <div class="controls-hint">
+      <div class="hint-item"><span class="hint-key">🖱️ CLICK</span> Pick up</div>
+      <div class="hint-item"><span class="hint-key">🖱️🖱️ DOUBLE</span> Pour/Use</div>
+      <div class="hint-item"><span class="hint-key">👆 HOVER</span> Show info</div>
+    </div>
+    <div id="phdisp">pH: 7.0</div>
+  </div>
+
+  <div id="body">
+    <div id="labwrap">
+      <canvas id="room-canvas"></canvas>
+      <div id="equipment-container"></div>
+    </div>
+
+    <div id="sidebar">
+      <div class="sidebar-section">
+        <h3>🔬 EXPERIMENTS</h3>
+        <div id="exp-list"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>⚡ CURRENT TASK</h3>
+        <div class="task-progress">
+          <div class="task-title">
+            <span id="current-task-name">Select an experiment</span>
+            <span id="task-progress-text">0/0</span>
+          </div>
+          <div class="task-bar">
+            <div class="task-fill" id="task-progress-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>🧪 ACTION STEPS</h3>
+        <div id="action-buttons"></div>
+      </div>
+
+      <div class="ph-meter">
+        <div class="ph-bar">
+          <div class="ph-needle" id="ph-needle" style="left: 50%;"></div>
+        </div>
+        <div class="ph-labels">
+          <span>0</span><span>3</span><span>7</span><span>10</span><span>14</span>
+        </div>
+      </div>
+
+      <div class="log-container">
+        <h3 style="color:#00d4ff; font-size:12px; margin-bottom:15px; letter-spacing:2px;">📋 LAB NOTES</h3>
+        <div id="log-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="alert-container"></div>
+
+<div id="loading-overlay">
+  <div class="loader-3d">
+    <div class="front"></div>
+    <div class="back"></div>
+    <div class="top"></div>
+    <div class="bottom"></div>
+    <div class="left"></div>
+    <div class="right"></div>
+  </div>
+  <div class="loading-text">INITIALIZING 3D LAB...</div>
+</div>
+
+<script>
+/* =============================================
+   3D ROOM RENDERER
+   ============================================= */
+const canvas = document.getElementById('room-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = document.getElementById('labwrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  draw3DRoom();
+}
+
+function draw3DRoom() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // 3D Perspective grid
+  const centerX = w / 2;
+  const horizonY = h * 0.45;
+  const vanishX = centerX;
+  const vanishY = h * 0.2;
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+  skyGrad.addColorStop(0, '#1a3344');
+  skyGrad.addColorStop(1, '#2a4055');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, w, horizonY);
+
+  // Floor gradient
+  const floorGrad = ctx.createLinearGradient(0, horizonY, 0, h);
+  floorGrad.addColorStop(0, '#2a3a4a');
+  floorGrad.addColorStop(1, '#1a2a3a');
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, horizonY, w, h - horizonY);
+
+  // 3D Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  
+  // Horizontal grid lines (perspective)
+  for (let i = 1; i <= 10; i++) {
+    const y = horizonY + (h - horizonY) * i / 10;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.strokeStyle = `rgba(255,255,255,${0.1 - i * 0.005})`;
+    ctx.stroke();
+  }
+
+  // Vertical grid lines (converging to vanishing point)
+  for (let x = 0; x <= w; x += w / 8) {
+    ctx.beginPath();
+    ctx.moveTo(vanishX, vanishY);
+    ctx.lineTo(x, h);
+    ctx.strokeStyle = `rgba(255,255,255,0.1)`;
+    ctx.stroke();
+  }
+
+  // 3D Lab Bench
+  const benchY = horizonY - 10;
+  const benchHeight = 60;
+  
+  // Bench top (3D effect)
+  ctx.fillStyle = '#3d4e63';
+  ctx.fillRect(0, benchY, w, benchHeight);
+  
+  // Bench front (shadow)
+  ctx.fillStyle = '#2d3e53';
+  ctx.fillRect(0, benchY + benchHeight, w, 20);
+  
+  // Bench highlights
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, benchY);
+  ctx.lineTo(w, benchY);
+  ctx.stroke();
+
+  // Cabinet details
+  ctx.fillStyle = '#2a3848';
+  for (let i = 0; i < 8; i++) {
+    const x = w * i / 8 + 20;
+    ctx.fillRect(x, benchY + 10, w/10, 40);
+  }
+
+  // Store bench position for equipment
+  window.benchY = benchY;
+}
+
+/* =============================================
+   PHYSICS ENGINE
+   ============================================= */
+class PhysicsEngine {
+  constructor() {
+    this.items = new Map();
+    this.gravity = 0.3;
+    this.friction = 0.95;
+    this.bounce = 0.6;
+    this.animationFrame = null;
+    this.container = document.getElementById('equipment-container');
+  }
+
+  init() {
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.start();
+  }
+
+  resize() {
+    this.items.forEach(item => {
+      item.maxX = this.container.clientWidth - item.width;
+      item.maxY = this.container.clientHeight - item.height;
+    });
+  }
+
+  addItem(id, element, x, y, width, height, options = {}) {
+    this.items.set(id, {
+      element,
+      x, y,
+      vx: 0, vy: 0,
+      width, height,
+      maxX: this.container.clientWidth - width,
+      maxY: this.container.clientHeight - height,
+      mass: options.mass || 1,
+      pinned: options.pinned || false,
+      bounce: options.bounce || 0.6
+    });
+
+    this.updateElementPosition(id);
+  }
+
+  updateElementPosition(id) {
+    const item = this.items.get(id);
+    if (item) {
+      item.element.style.transform = `translate(${item.x}px, ${item.y}px)`;
+    }
+  }
+
+  pinItem(id) {
+    const item = this.items.get(id);
+    if (item) {
+      item.pinned = true;
+      item.vx = 0;
+      item.vy = 0;
+    }
+  }
+
+  unpinItem(id) {
+    const item = this.items.get(id);
+    if (item) {
+      item.pinned = false;
+    }
+  }
+
+  applyForce(id, fx, fy) {
+    const item = this.items.get(id);
+    if (item && !item.pinned) {
+      item.vx += fx / item.mass;
+      item.vy += fy / item.mass;
+    }
+  }
+
+  update() {
+    this.items.forEach((item, id) => {
+      if (item.pinned) return;
+
+      // Apply gravity
+      item.vy += this.gravity;
+
+      // Apply friction
+      item.vx *= this.friction;
+      item.vy *= this.friction;
+
+      // Update position
+      item.x += item.vx;
+      item.y += item.vy;
+
+      // Boundary collisions
+      if (item.x < 0) {
+        item.x = 0;
+        item.vx *= -item.bounce;
+      }
+      if (item.x > item.maxX) {
+        item.x = item.maxX;
+        item.vx *= -item.bounce;
+      }
+      if (item.y < 0) {
+        item.y = 0;
+        item.vy *= -item.bounce;
+      }
+      if (item.y > item.maxY) {
+        item.y = item.maxY;
+        item.vy *= -item.bounce;
+        
+        // Bench collision sound effect
+        if (Math.abs(item.vy) > 2) {
+          this.createImpactEffect(item);
+        }
+      }
+
+      this.updateElementPosition(id);
+    });
+
+    this.checkCollisions();
+  }
+
+  createImpactEffect(item) {
+    // Visual feedback for impact
+    item.element.style.filter = 'brightness(1.5)';
+    setTimeout(() => {
+      item.element.style.filter = '';
+    }, 200);
+  }
+
+  checkCollisions() {
+    const items = Array.from(this.items.values());
+    
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+
+        if (a.pinned && b.pinned) continue;
+
+        const rect1 = { x: a.x, y: a.y, w: a.width, h: a.height };
+        const rect2 = { x: b.x, y: b.y, w: b.width, h: b.height };
+
+        if (this.checkRectCollision(rect1, rect2)) {
+          this.resolveCollision(a, b, rect1, rect2);
+          this.checkChemicalReaction(a, b);
+        }
+      }
+    }
+  }
+
+  checkRectCollision(r1, r2) {
+    return !(r2.x > r1.x + r1.w ||
+             r2.x + r2.w < r1.x ||
+             r2.y > r1.y + r1.h ||
+             r2.y + r2.h < r1.y);
+  }
+
+  resolveCollision(a, b, r1, r2) {
+    const dx = (r1.x + r1.w/2) - (r2.x + r2.w/2);
+    const dy = (r1.y + r1.h/2) - (r2.y + r2.h/2);
+    const overlapX = Math.min(r1.x + r1.w, r2.x + r2.w) - Math.max(r1.x, r2.x);
+    const overlapY = Math.min(r1.y + r1.h, r2.y + r2.h) - Math.max(r1.y, r2.y);
+
+    if (overlapX < overlapY) {
+      // Horizontal push
+      const push = overlapX * 0.5;
+      if (!a.pinned) {
+        a.x += dx > 0 ? push : -push;
+        a.vx *= -a.bounce;
+      }
+      if (!b.pinned) {
+        b.x += dx > 0 ? -push : push;
+        b.vx *= -b.bounce;
+      }
+    } else {
+      // Vertical push
+      const push = overlapY * 0.5;
+      if (!a.pinned) {
+        a.y += dy > 0 ? push : -push;
+        a.vy *= -a.bounce;
+      }
+      if (!b.pinned) {
+        b.y += dy > 0 ? -push : push;
+        b.vy *= -b.bounce;
+      }
+    }
+
+    // Visual feedback for collision
+    if (!a.pinned) this.createImpactEffect(a);
+    if (!b.pinned) this.createImpactEffect(b);
+  }
+
+  checkChemicalReaction(a, b) {
+    const aType = a.element.dataset.type;
+    const bType = b.element.dataset.type;
+
+    // Check for acid-base reaction
+    if ((aType === 'acid' && bType === 'base') || (aType === 'base' && bType === 'acid')) {
+      // Find container below
+      const container = this.findContainerBelow(a, b);
+      if (container) {
+        triggerReaction(container.element, aType, bType);
+      }
+    }
+  }
+
+  findContainerBelow(a, b) {
+    const items = Array.from(this.items.values());
+    const centerX = (a.x + a.width/2 + b.x + b.width/2) / 2;
+    const maxY = Math.max(a.y + a.height, b.y + b.height);
+
+    return items.find(item => {
+      const type = item.element.dataset.type;
+      return (type === 'beaker' || type === 'flask' || type === 'test-tube') &&
+             centerX > item.x && centerX < item.x + item.width &&
+             maxY > item.y && maxY < item.y + item.height;
+    });
+  }
+
+  start() {
+    const update = () => {
+      this.update();
+      this.animationFrame = requestAnimationFrame(update);
+    };
+    update();
+  }
+}
+
+/* =============================================
+   LABORATORY MANAGER
+   ============================================= */
+const physics = new PhysicsEngine();
+let draggedItem = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let currentExp = 0;
+let currentStep = 0;
+let completedSteps = [];
+let S = {};
+let lastClick = 0;
+let hoverTimeout = null;
+
+// Experiments
+const experiments = [
+  {
+    id: 0,
+    name: 'Acid-Base Neutralization',
+    desc: 'HCl + NaOH → NaCl + H₂O + Heat',
+    steps: [
+      { 
+        id: 'acid1',
+        action: 'acid', 
+        target: 'beaker', 
+        msg: 'Add HCl to beaker', 
+        ph: 2,
+        effect: () => {
+          changeLiquid('beaker', 'acid', 50);
+          showEquipmentAlert('beaker', '🧪 HCl Added', 'pH dropped to 2.0');
+        }
+      },
+      { 
+        id: 'base1',
+        action: 'base', 
+        target: 'beaker', 
+        msg: 'Add NaOH to neutralize', 
+        ph: 7,
+        effect: () => {
+          changeLiquid('beaker', 'base', 80);
+          createBubbles('beaker', 15);
+          showEquipmentAlert('beaker', '⚖️ Neutralization', 'pH = 7.0 - Solution neutralized');
+        }
+      },
+      { 
+        id: 'heat1',
+        action: 'heat', 
+        target: 'beaker', 
+        msg: 'Heat the solution', 
+        effect: 'heat',
+        effect: () => {
+          activateFlame(true);
+          createFumes('beaker', 20);
+          showEquipmentAlert('beaker', '🔥 Heating', 'Temperature rising to 60°C');
+        }
+      }
+    ]
+  },
+  {
+    id: 1,
+    name: 'Titration',
+    desc: 'CH₃COOH + NaOH → CH₃COONa + H₂O',
+    steps: [
+      { 
+        id: 'acid2',
+        action: 'acid', 
+        target: 'flask', 
+        msg: 'Add acetic acid to flask', 
+        ph: 3,
+        effect: () => {
+          changeLiquid('flask', 'acid', 40);
+        }
+      },
+      { 
+        id: 'base2',
+        action: 'base', 
+        target: 'flask', 
+        msg: 'Titrate with NaOH', 
+        ph: 8.5,
+        effect: () => {
+          changeLiquid('flask', 'base', 70);
+          createBubbles('flask', 10);
+        }
+      }
+    ]
+  },
+  {
+    id: 2,
+    name: 'Gas Production',
+    desc: 'HCl + NaHCO₃ → CO₂ + H₂O + NaCl',
+    steps: [
+      { 
+        id: 'acid3',
+        action: 'acid', 
+        target: 'test-tube', 
+        msg: 'Add HCl to test tube', 
+        ph: 2,
+        effect: () => {
+          changeLiquid('test-tube', 'acid', 60);
+        }
+      },
+      { 
+        id: 'stir1',
+        action: 'stir', 
+        target: 'test-tube', 
+        msg: 'Add sodium bicarbonate', 
+        effect: 'bubbles',
+        effect: () => {
+          createBubbles('test-tube', 30);
+          createFumes('test-tube', 15);
+          showEquipmentAlert('test-tube', '💨 CO₂ Produced', 'Vigorous bubbling observed');
+        }
+      }
+    ]
+  }
+];
+
+// Initialize lab
+function initLab() {
+  physics.init();
+  createEquipment();
+  setupInteractions();
+  populateExperiments();
+  updateActions();
+  
+  setTimeout(() => {
+    document.getElementById('loading-overlay').style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('loading-overlay').style.display = 'none';
+    }, 1000);
+  }, 2000);
+  
+  labLog('🔬 3D Chemistry Lab initialized', '');
+  labLog('👆 Hover over equipment to see info', '');
+  labLog('🖱️ Double-click bottles to pour', '');
+}
+
+function createEquipment() {
+  const container = document.getElementById('equipment-container');
+  const centerX = container.clientWidth / 2;
+  const baseY = window.benchY || 200;
+
+  // Create beaker
+  const beaker = createBeaker();
+  container.appendChild(beaker);
+  physics.addItem('beaker', beaker, centerX - 200, baseY - 80, 90, 110, { pinned: true });
+
+  // Create flask
+  const flask = createFlask();
+  container.appendChild(flask);
+  physics.addItem('flask', flask, centerX - 50, baseY - 100, 80, 120, { pinned: true });
+
+  // Create test tube
+  const testTube = createTestTube();
+  container.appendChild(testTube);
+  physics.addItem('test-tube', testTube, centerX + 100, baseY - 90, 50, 130, { pinned: true });
+
+  // Create acid bottle
+  const acidBottle = createBottle('acid', 'HCl', '#ff4466');
+  container.appendChild(acidBottle);
+  physics.addItem('acid', acidBottle, centerX - 300, baseY - 120, 60, 100);
+
+  // Create base bottle
+  const baseBottle = createBottle('base', 'NaOH', '#00d4ff');
+  container.appendChild(baseBottle);
+  physics.addItem('base', baseBottle, centerX + 200, baseY - 120, 60, 100);
+
+  // Create burner
+  const burner = createBurner();
+  container.appendChild(burner);
+  physics.addItem('burner', burner, centerX - 350, baseY - 50, 70, 110, { pinned: true });
+}
+
+function createBeaker() {
+  const div = document.createElement('div');
+  div.className = 'equipment';
+  div.dataset.type = 'beaker';
+  div.dataset.name = 'Glass Beaker 250mL';
+  div.style.width = '90px';
+  div.style.height = '110px';
+  
+  div.innerHTML = `
+    <div class="glass-3d beaker-3d">
+      <div class="lip"></div>
+      <div class="liquid-3d" id="beaker-liquid" style="height: 20%; background: linear-gradient(180deg, #aaddff, #44aaff);"></div>
+    </div>
+  `;
+  
+  return div;
+}
+
+function createFlask() {
+  const div = document.createElement('div');
+  div.className = 'equipment';
+  div.dataset.type = 'flask';
+  div.dataset.name = 'Erlenmeyer Flask 500mL';
+  div.style.width = '80px';
+  div.style.height = '120px';
+  
+  div.innerHTML = `
+    <div class="glass-3d flask-3d">
+      <div class="neck"></div>
+      <div class="liquid-3d" id="flask-liquid" style="height: 15%; background: linear-gradient(180deg, #aaddff, #44aaff);"></div>
+    </div>
+  `;
+  
+  return div;
+}
+
+function createTestTube() {
+  const div = document.createElement('div');
+  div.className = 'equipment';
+  div.dataset.type = 'test-tube';
+  div.dataset.name = 'Test Tube 20mL';
+  div.style.width = '50px';
+  div.style.height = '130px';
+  
+  div.innerHTML = `
+    <div class="glass-3d testtube-3d">
+      <div class="liquid-3d" id="tube-liquid" style="height: 30%; background: linear-gradient(180deg, #aaddff, #44aaff);"></div>
+      <div class="rack"></div>
+    </div>
+  `;
+  
+  return div;
+}
+
+function createBottle(type, label, color) {
+  const div = document.createElement('div');
+  div.className = 'equipment';
+  div.dataset.type = type;
+  div.dataset.name = label === 'HCl' ? 'Hydrochloric Acid' : 'Sodium Hydroxide';
+  div.style.width = '60px';
+  div.style.height = '100px';
+  
+  div.innerHTML = `
+    <div class="glass-3d bottle-3d">
+      <div class="cap"></div>
+      <div class="liquid-3d" style="height: 70%; background: linear-gradient(180deg, ${color}88, ${color});"></div>
+      <div style="position:absolute; top:25%; left:50%; transform:translateX(-50%); color:white; font-weight:bold; text-shadow:0 2px 5px black; z-index:10;">${label}</div>
+    </div>
+  `;
+  
+  return div;
+}
+
+function createBurner() {
+  const div = document.createElement('div');
+  div.className = 'equipment';
+  div.dataset.type = 'burner';
+  div.dataset.name = 'Bunsen Burner';
+  div.style.width = '70px';
+  div.style.height = '110px';
+  
+  div.innerHTML = `
+    <div class="burner-3d">
+      <div class="base"></div>
+      <div class="tube"></div>
+      <div class="flame-3d" id="burner-flame"></div>
+    </div>
+  `;
+  
+  return div;
+}
+
+function setupInteractions() {
+  document.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', endDrag);
+  
+  // Hover tooltips
+  document.querySelectorAll('.equipment').forEach(item => {
+    item.addEventListener('mouseenter', (e) => {
+      clearTimeout(hoverTimeout);
+      showEquipmentTooltip(item, e.clientX, e.clientY);
+    });
+    
+    item.addEventListener('mouseleave', () => {
+      hoverTimeout = setTimeout(() => {
+        document.querySelectorAll('.equipment-tooltip').forEach(t => t.remove());
+      }, 100);
+    });
+    
+    // Double click pour
+    item.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const type = item.dataset.type;
+      if (type === 'acid' || type === 'base') {
+        pourLiquid(item, type);
+      } else if (type === 'burner') {
+        toggleFlame();
+      }
+    });
+  });
+}
+
+function startDrag(e) {
+  if (e.button !== 0) return;
+  
+  const target = e.target.closest('.equipment');
+  if (!target) return;
+  
+  const id = getEquipmentId(target);
+  if (!id) return;
+  
+  physics.unpinItem(id);
+  
+  const rect = target.getBoundingClientRect();
+  const containerRect = document.getElementById('labwrap').getBoundingClientRect();
+  
+  draggedItem = {
+    element: target,
+    id: id,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top
+  };
+  
+  target.classList.add('dragging');
+  
+  // Stop physics during drag
+  const item = physics.items.get(id);
+  item.vx = 0;
+  item.vy = 0;
+}
+
+function drag(e) {
+  if (!draggedItem) return;
+  
+  const containerRect = document.getElementById('labwrap').getBoundingClientRect();
+  const item = physics.items.get(draggedItem.id);
+  
+  if (!item) return;
+  
+  let newX = e.clientX - containerRect.left - draggedItem.offsetX;
+  let newY = e.clientY - containerRect.top - draggedItem.offsetY;
+  
+  // Keep within bounds
+  newX = Math.max(0, Math.min(newX, containerRect.width - item.width));
+  newY = Math.max(0, Math.min(newY, containerRect.height - item.height));
+  
+  item.x = newX;
+  item.y = newY;
+  item.vx = 0;
+  item.vy = 0;
+  
+  physics.updateElementPosition(draggedItem.id);
+}
+
+function endDrag() {
+  if (draggedItem) {
+    draggedItem.element.classList.remove('dragging');
+    draggedItem = null;
+  }
+}
+
+function getEquipmentId(element) {
+  if (element.dataset.type === 'beaker') return 'beaker';
+  if (element.dataset.type === 'flask') return 'flask';
+  if (element.dataset.type === 'test-tube') return 'test-tube';
+  if (element.dataset.type === 'acid') return 'acid';
+  if (element.dataset.type === 'base') return 'base';
+  if (element.dataset.type === 'burner') return 'burner';
+  return null;
+}
+
+function showEquipmentTooltip(element, x, y) {
+  // Remove existing tooltips
+  document.querySelectorAll('.equipment-tooltip').forEach(t => t.remove());
+  
+  const tooltip = document.createElement('div');
+  tooltip.className = 'equipment-tooltip';
+  tooltip.textContent = element.dataset.name || 'Laboratory Equipment';
+  
+  document.body.appendChild(tooltip);
+  
+  const tooltipRect = tooltip.getBoundingClientRect();
+  tooltip.style.left = (x - tooltipRect.width / 2) + 'px';
+  tooltip.style.top = (y - 50) + 'px';
+}
+
+function showEquipmentAlert(equipmentId, title, message) {
+  const equipment = document.getElementById(equipmentId) || 
+                    document.querySelector(`[data-type="${equipmentId}"]`);
+  
+  if (equipment) {
+    // Flash the equipment
+    equipment.style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00d4ff)';
+    setTimeout(() => {
+      equipment.style.filter = '';
+    }, 500);
+  }
+  
+  showGlassAlert(title, message, 'reaction');
+}
+
+function showGlassAlert(title, message, type = 'info') {
+  const container = document.getElementById('alert-container');
+  const alert = document.createElement('div');
+  alert.className = `glass-alert ${type}`;
+  
+  const icons = {
+    info: '🔬',
+    success: '✅',
+    warning: '⚠️',
+    reaction: '⚡'
+  };
+  
+  alert.innerHTML = `
+    <div class="alert-icon">${icons[type] || '🔬'}</div>
+    <div class="alert-content">
+      <div class="alert-title">${title}</div>
+      <div class="alert-message">${message}</div>
+    </div>
+    <div class="alert-close" onclick="this.parentElement.remove()">✕</div>
+  `;
+  
+  container.appendChild(alert);
+  
+  // Auto remove after 4 seconds
+  setTimeout(() => {
+    if (alert.parentNode) {
+      alert.style.animation = 'alertSlideOut 0.3s ease forwards';
+      setTimeout(() => alert.remove(), 300);
+    }
+  }, 4000);
+}
+
+function changeLiquid(containerId, type, height) {
+  const liquidId = containerId === 'beaker' ? 'beaker-liquid' :
+                   containerId === 'flask' ? 'flask-liquid' : 'tube-liquid';
+  
+  const liquid = document.getElementById(liquidId);
+  if (!liquid) return;
+  
+  liquid.style.height = height + '%';
+  
+  if (type === 'acid') {
+    liquid.style.background = 'linear-gradient(180deg, #ff8888, #ff4466)';
+  } else if (type === 'base') {
+    liquid.style.background = 'linear-gradient(180deg, #88aaff, #4466ff)';
+  } else if (type === 'neutral') {
+    liquid.style.background = 'linear-gradient(180deg, #aaddff, #44aaff)';
+  }
+}
+
+function createBubbles(containerId, count) {
+  const container = document.getElementById(containerId) ||
+                    document.querySelector(`[data-type="${containerId}"]`);
+  if (!container) return;
+  
+  const rect = container.getBoundingClientRect();
+  const labRect = document.getElementById('labwrap').getBoundingClientRect();
+  
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.style.left = (rect.left - labRect.left + 10 + Math.random() * (rect.width - 20)) + 'px';
+      bubble.style.bottom = (labRect.bottom - rect.top - 10) + 'px';
+      bubble.style.width = (3 + Math.random() * 8) + 'px';
+      bubble.style.height = bubble.style.width;
+      
+      document.getElementById('equipment-container').appendChild(bubble);
+      setTimeout(() => bubble.remove(), 2000);
+    }, i * 100);
+  }
+}
+
+function createFumes(containerId, count) {
+  const container = document.getElementById(containerId) ||
+                    document.querySelector(`[data-type="${containerId}"]`);
+  if (!container) return;
+  
+  const rect = container.getBoundingClientRect();
+  const labRect = document.getElementById('labwrap').getBoundingClientRect();
+  
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const fume = document.createElement('div');
+      fume.className = 'fume-particle';
+      fume.style.left = (rect.left - labRect.left + rect.width / 2 + (Math.random() - 0.5) * 30) + 'px';
+      fume.style.bottom = (labRect.bottom - rect.top - 20) + 'px';
+      fume.style.width = (10 + Math.random() * 20) + 'px';
+      fume.style.height = fume.style.width;
+      fume.style.background = `rgba(200,200,200,${0.2 + Math.random() * 0.3})`;
+      
+      document.getElementById('equipment-container').appendChild(fume);
+      setTimeout(() => fume.remove(), 3000);
+    }, i * 100);
+  }
+}
+
+function createFlameParticles(count) {
+  const burner = document.querySelector('[data-type="burner"]');
+  if (!burner) return;
+  
+  const rect = burner.getBoundingClientRect();
+  const labRect = document.getElementById('labwrap').getBoundingClientRect();
+  
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const particle = document.createElement('div');
+      particle.className = 'flame-particle';
+      particle.style.left = (rect.left - labRect.left + rect.width / 2 + (Math.random() - 0.5) * 15) + 'px';
+      particle.style.bottom = (labRect.bottom - rect.top - 50) + 'px';
+      
+      document.getElementById('equipment-container').appendChild(particle);
+      setTimeout(() => particle.remove(), 1000);
+    }, i * 50);
+  }
+}
+
+function pourLiquid(bottle, type) {
+  const rect = bottle.getBoundingClientRect();
+  const labRect = document.getElementById('labwrap').getBoundingClientRect();
+  
+  // Find container below
+  const containers = ['beaker', 'flask', 'test-tube'];
+  let targetContainer = null;
+  
+  containers.forEach(id => {
+    const container = document.querySelector(`[data-type="${id}"]`);
+    if (!container) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const bottleCenter = rect.left + rect.width / 2;
+    
+    if (bottleCenter > containerRect.left && bottleCenter < containerRect.right &&
+        rect.bottom < containerRect.bottom + 50) {
+      targetContainer = container;
+    }
+  });
+  
+  if (!targetContainer) {
+    showGlassAlert('❌ No Container', 'Pour liquid into a container below', 'warning');
+    return;
+  }
+  
+  // Create droplets
+  for (let i = 0; i < 12; i++) {
+    setTimeout(() => {
+      const droplet = document.createElement('div');
+      droplet.className = 'droplet';
+      droplet.style.left = (rect.left - labRect.left + rect.width / 2 - 4) + 'px';
+      droplet.style.top = (rect.bottom - labRect.top - 10) + 'px';
+      droplet.style.background = type === 'acid' ? 
+        'radial-gradient(circle at 30% 30%, #ff8888, #ff4466)' : 
+        'radial-gradient(circle at 30% 30%, #88aaff, #4466ff)';
+      
+      document.getElementById('equipment-container').appendChild(droplet);
+      setTimeout(() => droplet.remove(), 800);
+    }, i * 80);
+  }
+  
+  // Fill target container
+  setTimeout(() => {
+    const containerType = targetContainer.dataset.type;
+    const liquidId = containerType === 'beaker' ? 'beaker-liquid' :
+                     containerType === 'flask' ? 'flask-liquid' : 'tube-liquid';
+    
+    const liquid = document.getElementById(liquidId);
+    if (liquid) {
+      const currentHeight = parseInt(liquid.style.height) || 0;
+      liquid.style.height = Math.min(90, currentHeight + 15) + '%';
+      
+      if (type === 'acid') {
+        liquid.style.background = 'linear-gradient(180deg, #ff8888, #ff4466)';
+      } else {
+        liquid.style.background = 'linear-gradient(180deg, #88aaff, #4466ff)';
+      }
+    }
+    
+    showGlassAlert('🧪 Liquid Added', `Poured ${type === 'acid' ? 'HCl' : 'NaOH'} into ${containerType}`, 'info');
+    labLog(`Poured ${type === 'acid' ? 'HCl' : 'NaOH'} into ${containerType}`, '');
+    
+    // Check if this completes a step
+    checkStepCompletion(type, containerType);
+  }, 400);
+}
+
+function toggleFlame() {
+  const flame = document.getElementById('burner-flame');
+  if (!flame) return;
+  
+  const isActive = flame.style.opacity === '1';
+  
+  if (!isActive) {
+    flame.style.height = '45px';
+    flame.style.opacity = '1';
+    startFlameParticles();
+    showGlassAlert('🔥 Burner Lit', 'Flame temperature: 850°C', 'warning');
+    labLog('Bunsen burner ignited', 'warning');
+    
+    // Check if heating step
+    if (currentStep < experiments[currentExp].steps.length) {
+      const step = experiments[currentExp].steps[currentStep];
+      if (step.action === 'heat') {
+        completeCurrentStep();
+      }
+    }
+  } else {
+    flame.style.height = '0';
+    flame.style.opacity = '0';
+    showGlassAlert('🔥 Burner Off', 'Flame extinguished', 'info');
+  }
+}
+
+function startFlameParticles() {
+  const interval = setInterval(() => {
+    const flame = document.getElementById('burner-flame');
+    if (!flame || flame.style.opacity !== '1') {
+      clearInterval(interval);
+      return;
+    }
+    createFlameParticles(3);
+  }, 200);
+}
+
+function activateFlame(active) {
+  const flame = document.getElementById('burner-flame');
+  if (flame) {
+    flame.style.height = active ? '45px' : '0';
+    flame.style.opacity = active ? '1' : '0';
+    if (active) startFlameParticles();
+  }
+}
+
+function triggerReaction(container, type1, type2) {
+  showGlassAlert('⚡ Chemical Reaction!', `${type1} + ${type2} → Salt + Water`, 'reaction');
+  createBubbles(container.id, 20);
+  createFumes(container.id, 10);
+  labLog(`⚡ Reaction occurred in ${container.dataset.type}`, 'reaction');
+  
+  // Change liquid color
+  const liquidId = container.dataset.type === 'beaker' ? 'beaker-liquid' :
+                   container.dataset.type === 'flask' ? 'flask-liquid' : 'tube-liquid';
+  const liquid = document.getElementById(liquidId);
+  if (liquid) {
+    liquid.style.background = 'linear-gradient(180deg, #88aaff, #4466ff)';
+  }
+  
+  // Update pH
+  setPH(7);
+}
+
+function setPH(value) {
+  const needle = document.getElementById('ph-needle');
+  const display = document.getElementById('phdisp');
+  const percent = (value / 14) * 100;
+  needle.style.left = percent + '%';
+  display.textContent = `pH: ${value.toFixed(1)}`;
+}
+
+function populateExperiments() {
+  const list = document.getElementById('exp-list');
+  
+  experiments.forEach((exp, index) => {
+    const card = document.createElement('div');
+    card.className = 'exp-card' + (index === 0 ? ' active' : '');
+    card.innerHTML = `
+      <div class="title">${exp.name}</div>
+      <div class="desc">${exp.desc}</div>
+      <div class="progress">
+        <div class="progress-bar" id="progress-${index}" style="width: 0%;"></div>
+      </div>
+    `;
+    
+    card.onclick = () => selectExperiment(index, card);
+    list.appendChild(card);
+  });
+}
+
+function selectExperiment(index, card) {
+  document.querySelectorAll('.exp-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  
+  currentExp = index;
+  currentStep = 0;
+  completedSteps = [];
+  S = {};
+  
+  // Reset progress
+  document.getElementById('current-task-name').textContent = experiments[index].name;
+  updateTaskProgress();
+  updateActions();
+  
+  showGlassAlert('🔬 Experiment Selected', experiments[index].name, 'info');
+  labLog(`--- ${experiments[index].name} ---`, '');
+  
+  // Reset equipment
+  resetEquipment();
+}
+
+function resetEquipment() {
+  const liquids = ['beaker-liquid', 'flask-liquid', 'tube-liquid'];
+  liquids.forEach(id => {
+    const liq = document.getElementById(id);
+    if (liq) {
+      liq.style.height = id === 'beaker-liquid' ? '20%' : 
+                         id === 'flask-liquid' ? '15%' : '30%';
+      liq.style.background = 'linear-gradient(180deg, #aaddff, #44aaff)';
+    }
+  });
+  
+  activateFlame(false);
+  setPH(7);
+}
+
+function updateActions() {
+  const container = document.getElementById('action-buttons');
+  const exp = experiments[currentExp];
+  
+  container.innerHTML = '';
+  
+  exp.steps.forEach((step, index) => {
+    const isCompleted = completedSteps.includes(index);
+    const isCurrent = index === currentStep && !isCompleted;
+    
+    const btn = document.createElement('button');
+    btn.className = `action-btn ${step.action} ${isCompleted ? 'completed' : ''}`;
+    btn.innerHTML = `
+      <span class="step-number">${index + 1}</span>
+      <span>${step.msg}</span>
+    `;
+    
+    btn.disabled = index > currentStep || isCompleted;
+    
+    btn.onclick = () => performStep(step, index);
+    container.appendChild(btn);
+  });
+  
+  updateTaskProgress();
+}
+
+function updateTaskProgress() {
+  const exp = experiments[currentExp];
+  const total = exp.steps.length;
+  const completed = completedSteps.length;
+  const percent = (completed / total) * 100;
+  
+  document.getElementById('task-progress-text').textContent = `${completed}/${total}`;
+  document.getElementById('task-progress-bar').style.width = percent + '%';
+  document.getElementById(`progress-${currentExp}`).style.width = percent + '%';
+}
+
+function performStep(step, index) {
+  // Perform the step effect
+  if (step.effect) step.effect();
+  
+  // Update pH if specified
+  if (step.ph) setPH(step.ph);
+  
+  // Log the action
+  labLog(`✅ ${step.msg}`, 'success');
+  
+  // Complete the step
+  completeStep(index);
+}
+
+function completeStep(index) {
+  if (!completedSteps.includes(index)) {
+    completedSteps.push(index);
+    currentStep = Math.max(currentStep, index + 1);
+    
+    updateActions();
+    
+    // Check if experiment is complete
+    if (completedSteps.length === experiments[currentExp].steps.length) {
+      showGlassAlert('🎉 Experiment Complete!', 'All steps finished successfully', 'success');
+      labLog('✨ Experiment completed!', 'success');
+    }
+  }
+}
+
+function checkStepCompletion(action, target) {
+  const exp = experiments[currentExp];
+  if (currentStep >= exp.steps.length) return;
+  
+  const step = exp.steps[currentStep];
+  if (step.action === action && step.target === target) {
+    completeStep(currentStep);
+  }
+}
+
+function labLog(msg, type = '') {
+  const logList = document.getElementById('log-list');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  
+  const time = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  entry.textContent = `[${time}] ${msg}`;
+  
+  logList.prepend(entry);
+  
+  // Keep only last 30 entries
+  while (logList.children.length > 30) {
+    logList.removeChild(logList.lastChild);
+  }
+}
+
+// Start the lab
+window.onload = () => {
+  resizeCanvas();
+  initLab();
+  setPH(7);
+};
+
+// Handle resize
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  physics.resize();
+});
+
+// Animation loop for 3D room
+function animate() {
+  requestAnimationFrame(animate);
+  draw3DRoom();
+}
+animate();
+
+// Prevent default drag
+document.addEventListener('dragstart', (e) => e.preventDefault());
+</script>
+</body>
+</html>
