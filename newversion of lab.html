@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -350,6 +351,9 @@ html, body {
 /* 3D Burner */
 .burner-3d {
   transform: rotateX(1deg) rotateY(2deg);
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .burner-3d .base {
@@ -377,10 +381,10 @@ html, body {
 /* Realistic Flame with particles */
 .flame-3d {
   position: absolute;
-  bottom: 80px;
+  bottom: 90px;
   left: 50%;
   transform: translateX(-50%);
-  width: 25px;
+  width: 30px;
   height: 0;
   background: radial-gradient(ellipse at 50% 100%, #fff, #ffd700, #ff8c00, #ff4500);
   border-radius: 50% 50% 20% 20%;
@@ -390,6 +394,7 @@ html, body {
   animation: flameFlicker 0.1s infinite alternate;
   transform-origin: bottom center;
   z-index: 20;
+  pointer-events: none;
 }
 
 @keyframes flameFlicker {
@@ -1438,6 +1443,7 @@ let completedSteps = [];
 let S = {};
 let lastClick = 0;
 let hoverTimeout = null;
+let flameInterval = null;
 
 // Experiments
 const experiments = [
@@ -1474,11 +1480,10 @@ const experiments = [
         action: 'heat', 
         target: 'beaker', 
         msg: 'Heat the solution', 
-        effect: 'heat',
         effect: () => {
-          activateFlame(true);
-          createFumes('beaker', 20);
-          showEquipmentAlert('beaker', '🔥 Heating', 'Temperature rising to 60°C');
+          toggleFlame();
+          // Check if beaker is over the flame
+          setTimeout(() => checkHeating(), 500);
         }
       }
     ]
@@ -1531,7 +1536,6 @@ const experiments = [
         action: 'stir', 
         target: 'test-tube', 
         msg: 'Add sodium bicarbonate', 
-        effect: 'bubbles',
         effect: () => {
           createBubbles('test-tube', 30);
           createFumes('test-tube', 15);
@@ -1567,10 +1571,10 @@ function createEquipment() {
   const centerX = container.clientWidth / 2;
   const baseY = window.benchY || 200;
 
-  // Create beaker
+  // Create beaker - positioned higher to be over burner
   const beaker = createBeaker();
   container.appendChild(beaker);
-  physics.addItem('beaker', beaker, centerX - 200, baseY - 80, 90, 110, { pinned: true });
+  physics.addItem('beaker', beaker, centerX - 200, baseY - 120, 90, 110, { pinned: false });
 
   // Create flask
   const flask = createFlask();
@@ -1585,17 +1589,17 @@ function createEquipment() {
   // Create acid bottle
   const acidBottle = createBottle('acid', 'HCl', '#ff4466');
   container.appendChild(acidBottle);
-  physics.addItem('acid', acidBottle, centerX - 300, baseY - 120, 60, 100);
+  physics.addItem('acid', acidBottle, centerX - 300, baseY - 120, 60, 100, { pinned: false });
 
   // Create base bottle
   const baseBottle = createBottle('base', 'NaOH', '#00d4ff');
   container.appendChild(baseBottle);
-  physics.addItem('base', baseBottle, centerX + 200, baseY - 120, 60, 100);
+  physics.addItem('base', baseBottle, centerX + 200, baseY - 120, 60, 100, { pinned: false });
 
-  // Create burner
+  // Create burner - positioned in center where beaker can be placed
   const burner = createBurner();
   container.appendChild(burner);
-  physics.addItem('burner', burner, centerX - 350, baseY - 50, 70, 110, { pinned: true });
+  physics.addItem('burner', burner, centerX - 50, baseY - 70, 70, 110, { pinned: true });
 }
 
 function createBeaker() {
@@ -1605,6 +1609,7 @@ function createBeaker() {
   div.dataset.name = 'Glass Beaker 250mL';
   div.style.width = '90px';
   div.style.height = '110px';
+  div.id = 'beaker';
   
   div.innerHTML = `
     <div class="glass-3d beaker-3d">
@@ -1623,6 +1628,7 @@ function createFlask() {
   div.dataset.name = 'Erlenmeyer Flask 500mL';
   div.style.width = '80px';
   div.style.height = '120px';
+  div.id = 'flask';
   
   div.innerHTML = `
     <div class="glass-3d flask-3d">
@@ -1641,6 +1647,7 @@ function createTestTube() {
   div.dataset.name = 'Test Tube 20mL';
   div.style.width = '50px';
   div.style.height = '130px';
+  div.id = 'test-tube';
   
   div.innerHTML = `
     <div class="glass-3d testtube-3d">
@@ -1678,6 +1685,7 @@ function createBurner() {
   div.dataset.name = 'Bunsen Burner';
   div.style.width = '70px';
   div.style.height = '110px';
+  div.id = 'burner';
   
   div.innerHTML = `
     <div class="burner-3d">
@@ -1776,6 +1784,12 @@ function drag(e) {
 function endDrag() {
   if (draggedItem) {
     draggedItem.element.classList.remove('dragging');
+    
+    // Check if beaker is placed over burner
+    if (draggedItem.id === 'beaker') {
+      checkHeating();
+    }
+    
     draggedItem = null;
   }
 }
@@ -2018,17 +2032,63 @@ function toggleFlame() {
     showGlassAlert('🔥 Burner Lit', 'Flame temperature: 850°C', 'warning');
     labLog('Bunsen burner ignited', 'warning');
     
-    // Check if heating step
-    if (currentStep < experiments[currentExp].steps.length) {
-      const step = experiments[currentExp].steps[currentStep];
-      if (step.action === 'heat') {
-        completeCurrentStep();
+    // Start continuous flame particles
+    if (flameInterval) clearInterval(flameInterval);
+    flameInterval = setInterval(() => {
+      if (flame.style.opacity === '1') {
+        createFlameParticles(2);
+        // Check if beaker is over flame and create fumes
+        checkHeating();
       }
-    }
+    }, 200);
+    
+    // Check if heating step
+    checkHeating();
   } else {
     flame.style.height = '0';
     flame.style.opacity = '0';
+    if (flameInterval) {
+      clearInterval(flameInterval);
+      flameInterval = null;
+    }
     showGlassAlert('🔥 Burner Off', 'Flame extinguished', 'info');
+  }
+}
+
+function checkHeating() {
+  const flame = document.getElementById('burner-flame');
+  const beaker = document.getElementById('beaker');
+  
+  if (!flame || !beaker) return;
+  
+  const flameActive = flame.style.opacity === '1';
+  if (!flameActive) return;
+  
+  const burner = document.querySelector('[data-type="burner"]');
+  const beakerRect = beaker.getBoundingClientRect();
+  const burnerRect = burner.getBoundingClientRect();
+  const labRect = document.getElementById('labwrap').getBoundingClientRect();
+  
+  // Check if beaker is positioned over the burner
+  const beakerCenterX = beakerRect.left + beakerRect.width / 2;
+  const beakerBottom = beakerRect.bottom;
+  
+  const isOverBurner = 
+    beakerCenterX > burnerRect.left && 
+    beakerCenterX < burnerRect.right &&
+    Math.abs(beakerBottom - burnerRect.top) < 50;
+  
+  if (isOverBurner) {
+    // Create fumes from beaker
+    createFumes('beaker', 3);
+    
+    // Check if this completes the heating step
+    if (currentStep < experiments[currentExp].steps.length) {
+      const step = experiments[currentExp].steps[currentStep];
+      if (step.action === 'heat' && step.target === 'beaker') {
+        completeCurrentStep();
+      }
+    }
   }
 }
 
@@ -2196,6 +2256,12 @@ function completeStep(index) {
       showGlassAlert('🎉 Experiment Complete!', 'All steps finished successfully', 'success');
       labLog('✨ Experiment completed!', 'success');
     }
+  }
+}
+
+function completeCurrentStep() {
+  if (currentStep < experiments[currentExp].steps.length) {
+    completeStep(currentStep);
   }
 }
 
